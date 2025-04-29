@@ -49,10 +49,15 @@ async def verify_password(request: Request):
         )
 
 # Apply middleware untuk semua endpoint
-app.middleware("http")(async def password_middleware(request: Request, call_next):
+@app.middleware("http")
+async def password_middleware(request: Request, call_next):
+    # Skip password check untuk endpoint docs dan openapi
+    if request.url.path in ["/docs", "/openapi.json", "/redoc"]:
+        return await call_next(request)
+    
     await verify_password(request)
     response = await call_next(request)
-    return response)
+    return response
 
 # Konfigurasi
 EMBEDDING_DIM = 300
