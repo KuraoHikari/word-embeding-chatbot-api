@@ -14,32 +14,44 @@ interface TrainingRequestOptions extends KyOptions {
 export async function sendTrainingRequestWithRetry(
   form: FormData,
   options: TrainingRequestOptions = {},
+  password: string,
 ): Promise<Response> {
   const {
     retries = 3,
     initialDelay = 1000,
     timeout = 30000,
     ..._kyOptions
-  } = options as { [key: string]: any };
+  } = options;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
+    // Convert FormData to NodeFormData untuk environment Node.js
+    const formData = new NodeFormData();
+    for (const [key, value] of form.entries()) {
+      formData.append(key, value);
+    }
+
     return await ky.post(`${env.PYTHON_SERVER_URL}/train`, {
-      body: Object.assign(new NodeFormData(), form),
+      ..._kyOptions,
+      headers: {
+        ..._kyOptions.headers,
+        "X-API-Password": password, // Ambil password dari environment
+        ...formData.getHeaders(), // Header boundary untuk form-data
+      },
+      body: formData as unknown as BodyInit,
       signal: controller.signal,
       retry: {
         limit: retries,
         methods: ["post"],
         statusCodes: [408, 413, 429, 500, 502, 503, 504],
-        backoffLimit: 10000, // Max delay 10 detik
+        backoffLimit: 10000,
       },
       hooks: {
         beforeRetry: [
           async ({ request: _request, retryCount }) => {
             const delay = Math.min(initialDelay * (2 ** retryCount), 10000);
-
             await new Promise(resolve => setTimeout(resolve, delay));
           },
         ],

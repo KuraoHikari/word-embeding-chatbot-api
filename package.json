@@ -1,5 +1,5 @@
 {
-  "name": "hono-api-reference",
+  "name": "word-embeding-chatbot-api",
   "type": "module",
   "version": "1.0.0",
   "description": "A Hono API reference implementation for Scalar. using Hono, Drizzle ORM, and SQLite.",

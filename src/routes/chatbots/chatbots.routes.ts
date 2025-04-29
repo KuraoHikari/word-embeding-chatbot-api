@@ -14,8 +14,8 @@ const CreateChatbotFormSchema = z.object({
   title: z.string().min(1).max(255),
   description: z.string().max(1000).optional(),
   commandTemplate: z.string().min(1),
-  modelAi: z.string().min(1),
-  embedingModel: z.string().min(1),
+  modelAi: z.enum(["gpt-3.5-turbo", "gpt-4", "gpt-4-32k", "gpt-4o"]).describe("OpenAI model to use"),
+  embedingModel: z.enum(["word2vec", "fasttext", "pinecone"]).describe("Embedding model type"),
   sugestionMessage: z.string().min(1),
 //   pdfTitle: z.string().min(1),
 });
