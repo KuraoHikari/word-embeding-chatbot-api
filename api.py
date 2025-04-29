@@ -1,4 +1,7 @@
-from flask import Flask, request, jsonify
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, status, Request, Body, Depends
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 import os
 import gensim
 import numpy as np
@@ -12,13 +15,44 @@ from nltk.tokenize import RegexpTokenizer
 from sklearn.metrics.pairwise import cosine_similarity
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+import uvicorn
 
-# Inisialisasi Flask App
-app = Flask(__name__)
+# Load environment variables
+load_dotenv()
+
+app = FastAPI()
 
 # NLTK Setup
 nltk.download('punkt')
 nltk.download('stopwords')
+
+# Setup CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.getenv("ALLOWED_ORIGINS", "*").split(","),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Password protection middleware
+async def verify_password(request: Request):
+    expected_password = os.getenv("API_PASSWORD")
+    if not expected_password:
+        return  # No password set
+    
+    provided_password = request.headers.get("X-API-Password")
+    if provided_password != expected_password:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+        )
+
+# Apply middleware untuk semua endpoint
+app.middleware("http")(async def password_middleware(request: Request, call_next):
+    await verify_password(request)
+    response = await call_next(request)
+    return response)
 
 # Konfigurasi
 EMBEDDING_DIM = 300
@@ -74,33 +108,35 @@ def find_context(query, embedding_model, docs, top_k_max=5, similarity_threshold
     
     return [docs[i] for i in top_indices]
 
-@app.route('/train', methods=['POST'])
-def train_model():
+@app.post("/train")
+async def train_model(request: Request):
     try:
+        form_data = await request.form()
+        
         # Validasi file PDF
-        if 'pdf' not in request.files:
-            return jsonify({'error': 'No PDF file uploaded'}), 400
+        if 'pdf' not in form_data:
+            return JSONResponse({'error': 'No PDF file uploaded'}, status_code=400)
             
-        pdf_file = request.files['pdf']
-        if pdf_file.filename == '':
-            return jsonify({'error': 'No selected file'}), 400
-            
+        pdf_file = form_data['pdf']
+        if not isinstance(pdf_file, UploadFile) or pdf_file.filename == '':
+            return JSONResponse({'error': 'No selected file'}, status_code=400)
+
         # Validasi form data
-        data = request.form
         required_fields = ['userId', 'chatbotId', 'modelType', 'pdfTitle']
         for field in required_fields:
-            if field not in data:
-                return jsonify({'error': f'Missing field: {field}'}), 400
+            if field not in form_data:
+                return JSONResponse({'error': f'Missing field: {field}'}, status_code=400)
 
         # Ekstrak parameter
-        user_id = str(data['userId'])
-        chatbot_id = str(data['chatbotId'])
-        model_type = data['modelType']
-        pdf_title = data['pdfTitle']
+        user_id = str(form_data['userId'])
+        chatbot_id = str(form_data['chatbotId'])
+        model_type = form_data['modelType']
+        pdf_title = form_data['pdfTitle']
 
         # Simpan PDF sementara
         with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-            pdf_file.save(tmp_file.name)
+            content = await pdf_file.read()
+            tmp_file.write(content)
             tmp_path = tmp_file.name
 
         try:
@@ -136,7 +172,7 @@ def train_model():
             elif model_type == 'fasttext':
                 model = FastText(processed_docs, vector_size=EMBEDDING_DIM, window=5, min_count=1, workers=4)
             else:
-                return jsonify({'error': 'Invalid model type'}), 400
+                return JSONResponse({'error': 'Invalid model type'}, status_code=400)
 
             # Path penyimpanan
             base_model_path = os.path.join('model', user_id, chatbot_id, pdf_title)
@@ -157,31 +193,28 @@ def train_model():
                 for doc in processed_docs:
                     f.write(' '.join(doc) + '\n')
 
-            return jsonify({
+            return JSONResponse({
                 'message': 'Model trained successfully',
                 'stats': {
                     'total_chunks': len(cleaned_documents),
                     'average_length': sum(len(d) for d in cleaned_documents)//len(cleaned_documents)
                 }
-            }), 201
+            }, status_code=201)
 
         finally:
-            # Bersihkan file temporer
             os.remove(tmp_path)
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
-        
-@app.route('/query', methods=['POST'])
-def query():
+        return JSONResponse({'error': str(e)}, status_code=500)
+
+@app.post("/query")
+async def query(data: dict = Body(...)):
     try:
-        data = request.get_json()
-        
         # Validasi input
         required_fields = ['query', 'embeddingModel', 'userId', 'chatbotId', 'pdfTitle', 'top_k_max', 'similarity_threshold']
         for field in required_fields:
             if field not in data:
-                return jsonify({'error': f'Missing field: {field}'}), 400
+                return JSONResponse({'error': f'Missing field: {field}'}, status_code=400)
                 
         # Ekstrak parameter
         embedding_model_path = data['embeddingModel']
@@ -213,10 +246,10 @@ def query():
             similarity_threshold=data['similarity_threshold']
         )
         
-        return jsonify(results), 200
+        return JSONResponse(results, status_code=200)
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return JSONResponse({'error': str(e)}, status_code=500)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=6666)
+    uvicorn.run(app, host='0.0.0.0', port=6666)
