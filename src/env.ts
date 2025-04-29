@@ -22,6 +22,9 @@ const EnvSchema = z.object({
   ACCESS_TOKEN_EXPIRES_IN: z.coerce.number().default(1),
   UPSTASH_REDIS_REST_URL: z.string().url(),
   UPSTASH_REDIS_REST_TOKEN: z.string().min(1),
+  PYTHON_SERVER_URL: z.string().url(),
+  OPEN_AI_API_KEY: z.string().min(1),
+  PINECONE_API_KEY: z.string().min(1),
 }).superRefine((input, ctx) => {
   if (input.NODE_ENV === "production" && !input.DATABASE_AUTH_TOKEN) {
     ctx.addIssue({
@@ -29,6 +32,24 @@ const EnvSchema = z.object({
       expected: "string",
       received: "undefined",
       path: ["DATABASE_AUTH_TOKEN"],
+      message: "Must be set when NODE_ENV is 'production'",
+    });
+  }
+  if (input.NODE_ENV === "production" && !input.UPSTASH_REDIS_REST_TOKEN) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.invalid_type,
+      expected: "string",
+      received: "undefined",
+      path: ["UPSTASH_REDIS_REST_TOKEN"],
+      message: "Must be set when NODE_ENV is 'production'",
+    });
+  }
+  if (input.NODE_ENV === "production" && !input.UPSTASH_REDIS_REST_URL) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.invalid_type,
+      expected: "string",
+      received: "undefined",
+      path: ["UPSTASH_REDIS_REST_URL"],
       message: "Must be set when NODE_ENV is 'production'",
     });
   }

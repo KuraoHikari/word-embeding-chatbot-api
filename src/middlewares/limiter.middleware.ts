@@ -1,12 +1,10 @@
 import { rateLimiter } from "hono-rate-limiter";
+import * as HttpStatusCodes from "stoker/http-status-codes";
+import * as HttpStatusPhrases from "stoker/http-status-phrases";
 
 import type { AppBindings } from "@/lib/types";
 
 import { getRedisStore } from "@/db/redish";
-
-import * as HttpStatusCodes from "stoker/http-status-codes";
-import * as HttpStatusPhrases from "stoker/http-status-phrases";
-
 
 export function createLimiter({
   limit,

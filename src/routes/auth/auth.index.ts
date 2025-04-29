@@ -1,9 +1,9 @@
 import { createRouter } from "@/lib/create-app";
 import { authMiddleware } from "@/middlewares/auth.middleware";
+import { authLimiter } from "@/middlewares/limiter.middleware";
 
 import * as handlers from "./auth.handler";
 import * as routes from "./auth.routes";
-import { authLimiter } from "@/middlewares/limiter.middleware";
 
 const router = createRouter();
 router.use(routes.login.path, authLimiter); // Apply auth middleware to all routes

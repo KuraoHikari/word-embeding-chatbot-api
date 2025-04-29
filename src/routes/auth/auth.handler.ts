@@ -1,4 +1,3 @@
-import { verify } from "hono/jwt";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import * as HttpStatusPhrases from "stoker/http-status-phrases";
 
@@ -6,7 +5,6 @@ import type { AppRouteHandler } from "@/lib/types";
 
 import db from "@/db";
 import { users } from "@/db/schema";
-import env from "@/env";
 import { hash, verify as verifyHash } from "@/lib/hashing";
 import { generateAccessToken } from "@/lib/token";
 
