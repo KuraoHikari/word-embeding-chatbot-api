@@ -64,11 +64,13 @@ export const create = createRoute({
       z.object({ message: z.string() }),
       "Invalid request",
     ),
-    // 401
-
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       z.object({ message: z.string() }),
       "Unauthorized",
+    ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      z.object({ message: z.string() }),
+      "Internal server error",
     ),
   },
 });
