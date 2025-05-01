@@ -25,6 +25,7 @@ const EnvSchema = z.object({
   PYTHON_SERVER_URL: z.string().url(),
   OPEN_AI_API_KEY: z.string().min(1),
   PINECONE_API_KEY: z.string().min(1),
+  API_PASSWORD: z.string().min(1),
 }).superRefine((input, ctx) => {
   if (input.NODE_ENV === "production" && !input.DATABASE_AUTH_TOKEN) {
     ctx.addIssue({
