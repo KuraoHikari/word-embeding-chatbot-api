@@ -1,10 +1,16 @@
+import { eq } from "drizzle-orm";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import * as HttpStatusPhrases from "stoker/http-status-phrases";
+import { v4 as uuidv4 } from "uuid";
 
 import type { AppRouteHandler } from "@/lib/types";
 
 import db from "@/db";
+import { loadPDFIntoPinecone } from "@/db/pinecone";
 import { chatbots } from "@/db/schema";
+import env from "@/env";
+import { TrainingError } from "@/lib/error";
+import { sendTrainingRequestWithRetry } from "@/lib/send-training-request-with-retry";
 
 import type { CreateChatbot, ListChatbot } from "./chatbots.routes";
 
@@ -29,7 +35,6 @@ export const list: AppRouteHandler<ListChatbot> = async (c) => {
 
 export const create: AppRouteHandler<CreateChatbot> = async (c) => {
   const userId = c.get("userId");
-  console.log("🚀 ~ constcreate:AppRouteHandler<CreateChatbot>= ~ userId:", userId);
 
   if (!userId) {
     return c.json(
@@ -40,37 +45,93 @@ export const create: AppRouteHandler<CreateChatbot> = async (c) => {
 
   const formData = c.req.valid("form");
   const { pdf, ...chatbotData } = formData;
-  console.log("🚀 ~ constcreate:AppRouteHandler<CreateChatbot>= ~ pdf:", pdf);
 
-  c.var.logger.info("Form data received:", pdf);
-
-  if (pdf) {
-    const pdfBuffer = await pdf.arrayBuffer();
-    console.log("🚀 ~ constcreate:AppRouteHandler<CreateChatbot>= ~ pdfBuffer:", pdfBuffer);
-
-    const pdfBlob = new Blob([pdfBuffer], { type: "application/pdf" });
-
-    console.log("🚀 ~ constcreate:AppRouteHandler<CreateChatbot>= ~ pdfBlob:", pdfBlob);
-
-    // Lakukan sesuatu dengan file PDF, misalnya simpan ke storage
-    // Simpan file ke storage
-  }
-
-  if (!chatbotData) {
+  if (!pdf || !(pdf instanceof File)) {
     return c.json(
-      { message: "Chatbot data is required" },
+      { message: "PDF file is required" },
       HttpStatusCodes.BAD_REQUEST,
     );
   }
-  // Simpan data ke database
-  //   await db.insert(chatbots).values({
-  //     ...chatbotData,
-  //     userId,
-  //   });
 
-  // Parse the JSON data
+  // validate pdf size max 10MB
+  if (pdf.size > 10 * 1024 * 1024) {
+    return c.json(
+      { message: "PDF file size exceeds 10MB" },
+      HttpStatusCodes.BAD_REQUEST,
+    );
+  }
 
-  return c.json({
-    message: HttpStatusPhrases.CREATED,
-  }, HttpStatusCodes.CREATED);
+  const [newChatbot] = await db.insert(chatbots).values({
+    ...chatbotData,
+    pdfTitle: pdf.name,
+    pdfLink: pdf.name,
+    userId: Number(userId),
+  }).returning({
+    id: chatbots.id,
+    title: chatbots.title,
+    modelAi: chatbots.modelAi,
+  });
+
+  try {
+    // Simpan data chatbot ke database
+
+    // Proses PDF ke Pinecone
+    const pdfBuffer = await pdf.arrayBuffer();
+    const pdfBlob = new Blob([pdfBuffer], { type: pdf.type });
+
+    if (chatbotData.embedingModel === "pinecone") {
+    // 1. Upload ke Pinecone
+      await loadPDFIntoPinecone({
+        pdfBlob,
+        namespace: newChatbot.id.toString(),
+      });
+    }
+    else {
+      // 2. Kirim request training ke Python server
+
+      const form = new FormData();
+
+      // Tambahkan file PDF
+      form.append("pdf", pdfBlob, "document.pdf");
+
+      // Tambahkan metadata
+      form.append("userId", String(userId));
+      form.append("chatbotId", String(newChatbot.id));
+      form.append("modelType", chatbotData.embedingModel);
+      form.append("pdfTitle", pdf.name);
+
+      // Kirim request ke Python server
+      // Kirim request training dengan retry
+      const trainingResponse = await sendTrainingRequestWithRetry(form, {
+        retries: 5,
+        initialDelay: 1500,
+        timeout: 60000, // 60 detik timeout
+        headers: {
+          "X-Request-ID": uuidv4(),
+          "User-Agent": "Chatbot-Server/1.0",
+        },
+      }, env.API_PASSWORD!);
+
+      if (!trainingResponse.ok) {
+        const errorBody = await trainingResponse.json();
+        throw new TrainingError("Training failed", errorBody);
+      }
+    }
+
+    return c.json({ message: "Chatbot created successfully" }, HttpStatusCodes.CREATED);
+  }
+  catch (error) {
+    console.error("Error processing request:", error);
+
+    // Rollback: Hapus chatbot jika gagal
+    await db.delete(chatbots).where(eq(chatbots.id, newChatbot.id));
+
+    return c.json(
+      {
+        message: HttpStatusPhrases.INTERNAL_SERVER_ERROR,
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      HttpStatusCodes.INTERNAL_SERVER_ERROR,
+    );
+  }
 };

@@ -24,3 +24,17 @@ export function BadRequest(message: string = "Bad Request") {
 export function InternalError(message: string = "Internal Error") {
   return new HTTPException(HttpStatusCodes.INTERNAL_SERVER_ERROR, { message });
 }
+
+export class TrainingError extends Error {
+  public readonly details: any;
+
+  constructor(message: string, details: any) {
+    super(message);
+    this.name = "TrainingError";
+    this.details = details;
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, TrainingError);
+    }
+  }
+}
