@@ -5,6 +5,7 @@ import * as HttpStatusPhrases from "stoker/http-status-phrases";
 import type { AppBindings } from "@/lib/types";
 
 import { getRedisStore } from "@/db/redish";
+import env from "@/env";
 
 export function createLimiter({
   limit,
@@ -16,10 +17,12 @@ export function createLimiter({
   windowMinutes: number;
   key?: string;
 }) {
+  const isDevelopment = env.NODE_ENV === "development";
+
   return rateLimiter<AppBindings>({
     windowMs: windowMinutes * 60 * 1000,
     limit,
-    store: getRedisStore(), // Use the singleton store instance
+    store: isDevelopment ? undefined : getRedisStore(), // Use the singleton store instance
     standardHeaders: "draft-7",
     keyGenerator: (c) => {
       const ip = c.req.header("x-forwarded-for") || c.req.header("cf-connecting-ip") || "anonymous";
@@ -56,6 +59,11 @@ export const apiLimiter = createLimiter({
 });
 
 export const strictLimiter = createLimiter({
+  limit: 5,
+  windowMinutes: 1,
+});
+
+export const chatbotsLimiter = createLimiter({
   limit: 5,
   windowMinutes: 1,
 });
