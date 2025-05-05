@@ -34,3 +34,7 @@ venv
 
 
 __pycache__
+
+storage
+
+model
