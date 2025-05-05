@@ -6,30 +6,14 @@ import { Buffer } from "node:buffer";
 
 import env from "@/env";
 
-interface TrainingRequestOptions extends KyOptions {
-  retries?: number;
-  initialDelay?: number;
-  timeout?: number;
-}
-
-export async function sendTrainingRequestWithRetry(
+export async function sendTrainingRequestWithoutRetry(
   form: FormData,
-  options: TrainingRequestOptions = {},
   password: string,
 ): Promise<Response> {
-  const {
-    retries = 3,
-    initialDelay = 1000,
-    timeout = 120000, // 2 menit
-    ..._kyOptions
-  } = options;
-
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  const nodeFormData = new NodeFormData();
 
   try {
-    const nodeFormData = new NodeFormData();
-
     // Process form fields
     const fields = [
       { name: "userId", value: form.get("userId")?.toString() || "" },
@@ -53,31 +37,16 @@ export async function sendTrainingRequestWithRetry(
 
     // Set headers
     const headers = {
-      ..._kyOptions.headers,
       "X-API-Password": password,
       ...nodeFormData.getHeaders(),
     };
 
     const response = await ky.post(`${env.PYTHON_SERVER_URL}/train`, {
-      ..._kyOptions,
       headers,
       body: nodeFormData.getBuffer(),
       signal: controller.signal,
-      retry: {
-        limit: retries,
-        methods: ["post"],
-        statusCodes: [408, 413, 429, 500, 502, 503, 504],
-        backoffLimit: 120000, // Maksimal backoff 2 menit
-      },
-      hooks: {
-        beforeRetry: [
-          async ({ retryCount }) => {
-            const delay = Math.min(initialDelay * (2 ** retryCount), 120000);
-            console.log(`Retrying in ${delay}ms...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-          },
-        ],
-      },
+      timeout: false, // Non-aktifkan timeout
+      retry: 0, // Non-aktifkan retry
     });
 
     if (!response.ok) {
@@ -90,8 +59,5 @@ export async function sendTrainingRequestWithRetry(
   catch (error) {
     console.error("Training request failed:", error);
     throw error;
-  }
-  finally {
-    clearTimeout(timeoutId);
   }
 }
