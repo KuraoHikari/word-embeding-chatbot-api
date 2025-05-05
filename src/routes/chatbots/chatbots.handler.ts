@@ -11,6 +11,7 @@ import { chatbots } from "@/db/schema";
 import env from "@/env";
 import { TrainingError } from "@/lib/error";
 import { sendTrainingRequestWithRetry } from "@/lib/send-training-request-with-retry";
+import { sendTrainingRequestWithoutRetry } from "@/lib/send-training-request-without-retry";
 
 import type { CreateChatbot, ListChatbot } from "./chatbots.routes";
 
@@ -62,7 +63,12 @@ export const create: AppRouteHandler<CreateChatbot> = async (c) => {
   }
 
   const [newChatbot] = await db.insert(chatbots).values({
-    ...chatbotData,
+    title: chatbotData.title,
+    description: chatbotData.description,
+    commandTemplate: chatbotData.commandTemplate,
+    modelAi: chatbotData.modelAi,
+    embedingModel: chatbotData.embedingModel,
+    sugestionMessage: chatbotData.sugestionMessage,
     pdfTitle: pdf.name,
     pdfLink: pdf.name,
     userId: Number(userId),
@@ -87,8 +93,6 @@ export const create: AppRouteHandler<CreateChatbot> = async (c) => {
       });
     }
     else {
-      // 2. Kirim request training ke Python server
-
       const form = new FormData();
 
       // Tambahkan file PDF
@@ -99,18 +103,15 @@ export const create: AppRouteHandler<CreateChatbot> = async (c) => {
       form.append("chatbotId", String(newChatbot.id));
       form.append("modelType", chatbotData.embedingModel);
       form.append("pdfTitle", pdf.name);
+      console.log("======Form Data:", form);
 
       // Kirim request ke Python server
       // Kirim request training dengan retry
-      const trainingResponse = await sendTrainingRequestWithRetry(form, {
-        retries: 5,
-        initialDelay: 1500,
-        timeout: 60000, // 60 detik timeout
-        headers: {
-          "X-Request-ID": uuidv4(),
-          "User-Agent": "Chatbot-Server/1.0",
-        },
-      }, env.API_PASSWORD!);
+      const trainingResponse = await sendTrainingRequestWithoutRetry(
+        form,
+        env.API_PASSWORD,
+      );
+      console.log("======Training Response:", trainingResponse);
 
       if (!trainingResponse.ok) {
         const errorBody = await trainingResponse.json();

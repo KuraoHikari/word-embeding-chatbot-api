@@ -198,7 +198,11 @@ export const insertChatbotsSchema = createInsertSchema(
   userId: true,
 });
 
-export const patchChatbotsSchema = insertChatbotsSchema.partial();
+export const patchChatbotsSchema = insertChatbotsSchema.omit({
+  pdfTitle: true,
+  pdfLink: true,
+  embedingModel: true,
+}).partial();
 
 export const selectContactsSchema = createSelectSchema(contacts);
 
