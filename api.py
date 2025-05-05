@@ -119,6 +119,23 @@ def find_context(query, embedding_model, docs, top_k_max=5, similarity_threshold
     
     return [docs[i] for i in top_indices]
 
+def get_model_params(model_type: str):
+    """Return parameters spesifik untuk tiap model"""
+    base_params = {
+        "vector_size": 100,
+        "window": 5,
+        "min_count": 2,
+        "workers": 4,
+        "epochs": 10
+    }
+    
+    if model_type == "fasttext":
+        base_params["bucket"] = 100000  # Parameter khusus FastText
+        base_params["min_n"] = 3
+        base_params["max_n"] = 6
+    
+    return base_params
+
 @app.post("/train")
 async def train_model(
     pdf: UploadFile = File(...),
@@ -182,14 +199,7 @@ async def train_model(
                 raise HTTPException(400, "Gagal melakukan preprocessing teks")
 
             # Optimasi parameter model
-            model_params = {
-                "vector_size": 100,  # Kurangi dari 300
-                "window": 5,
-                "min_count": 2,      # Ubah dari 1
-                "workers": 4,
-                "epochs": 10,
-                "bucket": 100000    # Kurangi jumlah buckets
-            }
+            model_params = get_model_params(modelType)
 
             # Training model
             if modelType == 'word2vec':
