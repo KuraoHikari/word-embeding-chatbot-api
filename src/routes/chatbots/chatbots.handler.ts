@@ -1,4 +1,7 @@
 import { eq } from "drizzle-orm";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import * as HttpStatusPhrases from "stoker/http-status-phrases";
 import { v4 as uuidv4 } from "uuid";
@@ -9,11 +12,15 @@ import db from "@/db";
 import { loadPDFIntoPinecone } from "@/db/pinecone";
 import { chatbots } from "@/db/schema";
 import env from "@/env";
+import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from "@/lib/constants";
 import { TrainingError } from "@/lib/error";
-import { sendTrainingRequestWithRetry } from "@/lib/send-training-request-with-retry";
 import { sendTrainingRequestWithoutRetry } from "@/lib/send-training-request-without-retry";
 
-import type { CreateChatbot, ListChatbot } from "./chatbots.routes";
+import type { CreateChatbot, DeleteChatbot, ListChatbot, PatchChatbot } from "./chatbots.routes";
+
+// Get the current directory equivalent to __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const list: AppRouteHandler<ListChatbot> = async (c) => {
   const userId = c.get("userId");
@@ -135,4 +142,128 @@ export const create: AppRouteHandler<CreateChatbot> = async (c) => {
       HttpStatusCodes.INTERNAL_SERVER_ERROR,
     );
   }
+};
+
+export const patch: AppRouteHandler<PatchChatbot> = async (c) => {
+  const userId = c.get("userId");
+
+  if (!userId) {
+    return c.json(
+      { message: HttpStatusPhrases.UNAUTHORIZED },
+      HttpStatusCodes.UNAUTHORIZED,
+    );
+  }
+
+  const { id } = c.req.valid("param");
+
+  const updates = c.req.valid("json");
+
+  if (Object.keys(updates).length === 0) {
+    return c.json(
+      {
+        success: false,
+        error: {
+          issues: [
+            {
+              code: ZOD_ERROR_CODES.INVALID_UPDATES,
+              path: [],
+              message: ZOD_ERROR_MESSAGES.NO_UPDATES,
+            },
+          ],
+          name: "ZodError",
+        },
+      },
+      HttpStatusCodes.UNPROCESSABLE_ENTITY,
+    );
+  }
+  const [chatbot] = await db.update(chatbots)
+    .set(updates)
+    .where(eq(chatbots.id, id))
+    .returning();
+
+  if (!chatbot) {
+    return c.json(
+      {
+        message: HttpStatusPhrases.NOT_FOUND,
+      },
+      HttpStatusCodes.NOT_FOUND,
+    );
+  }
+  return c.json({
+    message: "Chatbot updated successfully",
+  }, HttpStatusCodes.OK);
+};
+
+export const remove: AppRouteHandler<DeleteChatbot> = async (c) => {
+  const userId = c.get("userId");
+
+  if (!userId) {
+    return c.json(
+      { message: HttpStatusPhrases.UNAUTHORIZED },
+      HttpStatusCodes.UNAUTHORIZED,
+    );
+  }
+
+  const { id } = c.req.valid("param");
+
+  // Check if the chatbot exists
+  const chatbot = await db.query.chatbots.findFirst({
+    where(fields, operators) {
+      return operators.and(
+        operators.eq(fields.id, id),
+        operators.eq(fields.userId, userId),
+      );
+    },
+  });
+  if (!chatbot) {
+    return c.json(
+      {
+        message: HttpStatusPhrases.NOT_FOUND,
+      },
+      HttpStatusCodes.NOT_FOUND,
+    );
+  }
+
+  let successRemoveModelandStorage: boolean = false;
+
+  // Check embedding model
+  if (chatbot?.embedingModel === "pinecone") {
+    successRemoveModelandStorage = true;
+  }
+  else {
+    // Remove from ./storage/{userId}/{chatbotId}
+    const storagePath = path.resolve(__dirname, "../../../storage");
+    const chatbotPath = path.join(storagePath, userId.toString(), chatbot.id.toString());
+
+    if (fs.existsSync(chatbotPath)) {
+      fs.rmSync(chatbotPath, { recursive: true, force: true });
+    }
+
+    // Remove model from ./model/{userId}/{chatbotId}
+    const modelPath = path.resolve(__dirname, "../../../model");
+    const chatbotModelPath = path.join(modelPath, userId.toString(), chatbot.id.toString());
+
+    if (fs.existsSync(chatbotModelPath)) {
+      fs.rmSync(chatbotModelPath, { recursive: true, force: true });
+    }
+
+    // Check if removal was successful
+    successRemoveModelandStorage = !fs.existsSync(chatbotPath) && !fs.existsSync(chatbotModelPath);
+  }
+
+  if (!successRemoveModelandStorage) {
+    return c.json(
+      {
+        message: "Failed to remove model and storage",
+      },
+      HttpStatusCodes.INTERNAL_SERVER_ERROR,
+    );
+  }
+
+  await db.delete(chatbots).where(eq(chatbots.id, id));
+
+  return c.json(
+    { message: "Chatbot deleted successfully" },
+    HttpStatusCodes.OK,
+  );
 };

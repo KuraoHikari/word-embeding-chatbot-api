@@ -1,9 +1,8 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { json } from "node:stream/consumers";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import * as HttpStatusPhrases from "stoker/http-status-phrases";
 import { jsonContent, jsonContentRequired } from "stoker/openapi/helpers";
-import { IdParamsSchema } from "stoker/openapi/schemas";
+import { createErrorSchema, IdParamsSchema } from "stoker/openapi/schemas";
 
 import { patchChatbotsSchema, selectChatbotsSchema } from "@/db/schema";
 
@@ -148,6 +147,10 @@ export const remove = createRoute({
       z.object({ message: z.string() }),
       HttpStatusPhrases.INTERNAL_SERVER_ERROR,
     ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      z.object({ message: z.string() }),
+      "Chatbot not found",
+    ),
   },
 
 });
@@ -175,6 +178,11 @@ export const patch = createRoute({
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       z.object({ message: z.string() }),
       HttpStatusPhrases.UNAUTHORIZED,
+    ),
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      createErrorSchema(patchChatbotsSchema)
+        .or(createErrorSchema(IdParamsSchema)),
+      "The validation error(s)",
     ),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       z.object({ message: z.string() }),
