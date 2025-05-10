@@ -20,6 +20,8 @@ const EnvSchema = z.object({
   // token
   ACCESS_TOKEN_SECRET: z.string().min(1),
   ACCESS_TOKEN_EXPIRES_IN: z.coerce.number().default(1),
+  ACCESS_TOKEN_SECRET_PUBLIC: z.string().min(1),
+  ACCESS_TOKEN_EXPIRES_IN_PUBLIC: z.coerce.number().default(1),
   UPSTASH_REDIS_REST_URL: z.string().url(),
   UPSTASH_REDIS_REST_TOKEN: z.string().min(1),
   PYTHON_SERVER_URL: z.string().url(),

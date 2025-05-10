@@ -4,6 +4,7 @@ import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import { relations, sql } from "drizzle-orm";
 import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { z } from "zod";
 
 const id = {
   id: integer("id", { mode: "number" })
@@ -211,3 +212,26 @@ export const loginUserSchema = registerUserSchema.omit({
 });
 
 export const patchTasksSchema = insertTasksSchema.partial();
+
+export const selectContactSchema = createSelectSchema(contacts);
+
+export const createContactSchema = createInsertSchema(
+  contacts,
+  {
+    name: schema => schema.name.min(1).max(500),
+    email: schema => schema.email.email().min(1).max(500),
+    phone: schema => schema.phone.min(1).max(500),
+  },
+).required({
+  name: true,
+  email: true,
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  userId: true,
+}).partial({
+  phone: true,
+});
+
+export const patchContactSchema = createContactSchema.partial();
