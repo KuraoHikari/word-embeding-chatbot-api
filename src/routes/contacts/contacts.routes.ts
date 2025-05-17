@@ -37,23 +37,20 @@ export const create = createRoute({
     body: jsonContentRequired(createContactSchema.extend({
       chatbotId: z.number(),
     }), "The contact to create"),
-    headers: z.object({
-      authorization: z.string().optional(),
-    }),
   },
   responses: {
-    [HttpStatusCodes.CREATED]: jsonContent(
-      selectContactSchema,
+    [HttpStatusCodes.OK]: jsonContent(
+      z.object({
+        access_token: z.string(),
+      }),
       "Contact created",
     ),
-    [HttpStatusCodes.BAD_REQUEST]: jsonContent(
+    // not found
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
       z.object({ message: z.string() }),
-      HttpStatusPhrases.BAD_REQUEST,
+      "Chatbot not found",
     ),
-    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
-      z.object({ message: z.string() }),
-      HttpStatusPhrases.UNAUTHORIZED,
-    ),
+
     [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
       z.object({ message: z.string() }),
       HttpStatusPhrases.INTERNAL_SERVER_ERROR,
@@ -65,7 +62,7 @@ export const create = createRoute({
   },
 });
 
-export const get = createRoute({
+export const getOne = createRoute({
   path: "/contacts/{id}",
   method: "get",
   tags,
@@ -132,3 +129,8 @@ export const remove = createRoute({
     ),
   },
 });
+
+export type ListRoute = typeof list;
+export type CreateRoute = typeof create;
+export type GetOneRoute = typeof getOne;
+export type RemoveRoute = typeof remove;
