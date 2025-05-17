@@ -264,48 +264,72 @@ async def train_model(
         raise HTTPException(500, "Terjadi kesalahan internal")
 
 @app.post("/query")
-async def query(data: dict = Body(...)):
+async def query_model(
+    query: str = Form(...),
+    userId: str = Form(...),
+    chatbotId: str = Form(...),
+    modelType: str = Form(..., regex="^(word2vec|fasttext)$"),
+    pdfTitle: str = Form(...),
+    topK: int = Form(default=5),
+    similarityThreshold: float = Form(default=0.4),
+):
     try:
-        # Validasi input
-        required_fields = ['query', 'embeddingModel', 'userId', 'chatbotId', 'pdfTitle', 'top_k_max', 'similarity_threshold']
-        for field in required_fields:
-            if field not in data:
-                return JSONResponse({'error': f'Missing field: {field}'}, status_code=400)
-                
-        # Ekstrak parameter
-        embedding_model_path = data['embeddingModel']
-        user_id = str(data['userId'])
-        chatbot_id = str(data['chatbotId'])
-        pdf_title = data['pdfTitle']
+        # Konstruksi path
+        base_path = Path("model") / userId / chatbotId / pdfTitle
+        storage_path = Path("storage") / userId / chatbotId / pdfTitle
         
-        # Load model
-        model_dir = os.path.dirname(embedding_model_path)
-        with open(os.path.join(model_dir, 'model_type.txt'), 'r') as f:
-            model_type = f.read().strip()
-            
-        if model_type == 'word2vec':
-            model = Word2Vec.load(embedding_model_path)
-        else:
-            model = FastText.load(embedding_model_path)
-        
-        # Load original texts
-        storage_path = os.path.join('storage', user_id, chatbot_id, pdf_title, 'original_texts.txt')
-        with open(storage_path, 'r') as f:
-            documents = [line.strip() for line in f.readlines()]
-        
+        # 1. Load metadata
+        try:
+            with open(base_path / "metadata.json", "r") as f:
+                metadata = json.load(f)
+        except Exception as e:
+            logger.error(f"Gagal memuat metadata: {str(e)}")
+            raise HTTPException(400, "Metadata model tidak valid")
+
+        # 2. Load model
+        try:
+            model_file = base_path / f"{modelType}.model"
+            if modelType == 'word2vec':
+                model = Word2Vec.load(str(model_file))
+            else:
+                model = FastText.load(str(model_file))
+        except Exception as e:
+            logger.error(f"Gagal memuat model: {str(e)}")
+            raise HTTPException(404, "Model tidak ditemukan atau tidak valid")
+
+        # 3. Load dokumen original
+        try:
+            text_file = storage_path / "original_texts.txt"
+            with open(text_file, "r", encoding="utf-8") as f:
+                documents = [line.strip() for line in f if line.strip()]
+        except Exception as e:
+            logger.error(f"Gagal memuat dokumen: {str(e)}")
+            raise HTTPException(404, "Dokumen referensi tidak ditemukan")
+
         # Proses query
         results = find_context(
-            query=data['query'],
+            query=query,
             embedding_model=model,
             docs=documents,
-            top_k_max=data['top_k_max'],
-            similarity_threshold=data['similarity_threshold']
+            top_k_max=topK,
+            similarity_threshold=similarityThreshold
         )
+
+        return JSONResponse({
+            "status": "success",
+            "results": results,
+            "metadata": {
+                "modelType": modelType,
+                "parameters": metadata.get('parameters'),
+                "documentsCount": len(documents)
+            }
+        }, status_code=200)
         
-        return JSONResponse(results, status_code=200)
-        
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        return JSONResponse({'error': str(e)}, status_code=500)
+        logger.error(f"Error processing query: {str(e)}")
+        raise HTTPException(500, "Terjadi kesalahan internal")
 
 if __name__ == '__main__':
     uvicorn.run(app, host='0.0.0.0', port=8888)
