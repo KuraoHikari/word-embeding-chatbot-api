@@ -26,7 +26,7 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
   }
 };
 
-export const authMiddlewarePublic: MiddlewareHandler = async (c, next) => {
+export const authMiddlewarePublicContact: MiddlewareHandler = async (c, next) => {
   const authHeader = c.req.header("Authorization");
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -38,7 +38,7 @@ export const authMiddlewarePublic: MiddlewareHandler = async (c, next) => {
   try {
     const payload = await verify(token, env.ACCESS_TOKEN_SECRET_PUBLIC);
 
-    c.set("userId", payload.sub); // Simpan user ID di context
+    c.set("contactId", payload.sub); // Simpan user ID di context
     await next(); // Lanjut ke handler berikutnya
   }
   catch {

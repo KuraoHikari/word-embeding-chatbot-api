@@ -4,7 +4,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import * as HttpStatusPhrases from "stoker/http-status-phrases";
-import { v4 as uuidv4 } from "uuid";
 
 import type { AppRouteHandler } from "@/lib/types";
 

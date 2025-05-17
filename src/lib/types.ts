@@ -6,6 +6,7 @@ export interface AppBindings {
   Variables: {
     logger: PinoLogger;
     userId?: number; // <- ditambahkan
+    contactId?: number; // <- ditambahkan
   };
 }
 

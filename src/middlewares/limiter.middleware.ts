@@ -11,11 +11,13 @@ export function createLimiter({
   limit,
   windowMinutes,
   key = "",
+  isPublicContact = false,
 }: {
   limit: number;
 
   windowMinutes: number;
   key?: string;
+  isPublicContact?: boolean;
 }) {
   const isDevelopment = env.NODE_ENV === "development";
 
@@ -26,9 +28,9 @@ export function createLimiter({
     standardHeaders: "draft-7",
     keyGenerator: (c) => {
       const ip = c.req.header("x-forwarded-for") || c.req.header("cf-connecting-ip") || "anonymous";
-      const userId = c.get("userId") || "guest";
+      const id = isPublicContact ? c.get("contactId") : c.get("userId") || "guest";
       const pathKey = key || c.req.path;
-      return `${userId}_${ip}_${pathKey}`;
+      return `${id}_${ip}_${pathKey}`;
     },
     handler: (c) => {
       return c.json(

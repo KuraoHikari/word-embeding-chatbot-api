@@ -72,7 +72,6 @@ export const contacts = sqliteTable("contacts", {
 // Conversations Table
 export const conversations = sqliteTable("conversations", {
   ...id,
-  title: text("title").notNull(),
   userId: integer("user_id").notNull().references(() => users.id),
   chatbotId: integer("chatbot_id").notNull().references(() => chatbots.id),
   contactId: integer("contact_id").notNull().references(() => contacts.id),
@@ -85,6 +84,7 @@ export const messages = sqliteTable("messages", {
   text: text("text").notNull(),
   conversationId: integer("conversation_id").notNull().references(() => conversations.id),
   userId: integer("user_id").notNull().references(() => users.id),
+  isBot: integer("is_bot", { mode: "boolean" }).notNull().default(false),
   ...timestamps,
 });
 
@@ -235,3 +235,38 @@ export const createContactSchema = createInsertSchema(
 });
 
 export const patchContactSchema = createContactSchema.partial();
+export const selectConversationsSchema = createSelectSchema(conversations);
+export const insertConversationsSchema = createInsertSchema(
+  conversations,
+  {
+    chatbotId: schema => schema.chatbotId.min(1).max(500),
+  },
+).required({
+  chatbotId: true,
+}).omit({
+  id: true,
+  contactId: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const selectMessagesSchema = createSelectSchema(messages);
+export const insertMessagesSchema = createInsertSchema(
+  messages,
+  {
+    text: schema => schema.text.min(1).max(500),
+    conversationId: schema => schema.conversationId.min(1).max(500),
+  },
+).required({
+  text: true,
+}).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+  isBot: true,
+}).extend({
+  // extend chatbotId required
+  chatbotId: z.number().min(1).max(500),
+});
