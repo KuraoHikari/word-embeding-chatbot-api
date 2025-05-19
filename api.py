@@ -117,7 +117,14 @@ def find_context(query, embedding_model, docs, top_k_max=5, similarity_threshold
     sorted_indices = relevant_indices[np.argsort(similarities[relevant_indices])[::-1]]
     top_indices = sorted_indices[:top_k_max]
     
-    return [docs[i] for i in top_indices]
+     # Fungsi untuk mendapatkan konteks dengan dokumen sekitarnya
+    def get_context_chunk(index: int) -> str:
+        start = max(0, index - 1)
+        end = min(len(docs), index + 2)  # +2 karena slicing exclusive
+        return ' '.join(docs[start:end])
+    
+    # Ambil konteks untuk setiap indeks teratas
+    return [get_context_chunk(i) for i in top_indices]
 
 def get_model_params(model_type: str):
     """Return parameters spesifik untuk tiap model"""
