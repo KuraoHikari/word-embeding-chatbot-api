@@ -41,7 +41,7 @@ export async function sendTrainingRequestWithoutRetry(
       ...nodeFormData.getHeaders(),
     };
 
-    const response = await ky.post(`${env.PYTHON_SERVER_URL}/train`, {
+    const response = await ky.post(`${env.PYTHON_SERVER_URL}/train/baseline-model`, {
       headers,
       body: nodeFormData.getBuffer(),
       signal: controller.signal,
