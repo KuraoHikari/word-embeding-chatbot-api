@@ -13,14 +13,14 @@ const router = createRouter()
       path: "/",
       responses: {
         [HttpStatusCodes.OK]: jsonContent(
-          createMessageObjectSchema("Tasks API"),
-          "Tasks API Index",
+          createMessageObjectSchema("Welcome to the Word Embedding Chatbot API!"),
+          "Welcome to the Word Embedding Chatbot API! Index",
         ),
       },
     }),
     (c) => {
       return c.json({
-        message: "Tasks API",
+        message: "Welcome to the Word Embedding Chatbot API!",
       }, HttpStatusCodes.OK);
     },
   );

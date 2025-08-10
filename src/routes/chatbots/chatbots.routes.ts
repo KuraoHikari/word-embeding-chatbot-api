@@ -16,6 +16,7 @@ const CreateChatbotFormSchema = z.object({
   modelAi: z.enum(["gpt-3.5-turbo", "gpt-4", "gpt-4-32k", "gpt-4o"]).describe("OpenAI model to use"),
   embedingModel: z.enum(["word2vec", "fasttext", "pinecone"]).describe("Embedding model type"),
   sugestionMessage: z.string().min(1),
+  modelType: z.enum(["proposed-model", "baseline-model"]).describe("Type of model"),
 });
 
 export const list = createRoute({

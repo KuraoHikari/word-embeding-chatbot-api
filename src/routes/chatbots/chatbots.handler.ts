@@ -109,15 +109,16 @@ export const create: AppRouteHandler<CreateChatbot> = async (c) => {
       form.append("chatbotId", String(newChatbot.id));
       form.append("modelType", chatbotData.embedingModel);
       form.append("pdfTitle", pdf.name);
-      console.log("======Form Data:", form);
 
       // Kirim request ke Python server
       // Kirim request training dengan retry
       const trainingResponse = await sendTrainingRequestWithoutRetry(
         form,
         env.API_PASSWORD,
+        chatbotData.modelType,
       );
-      console.log("======Training Response:", trainingResponse);
+
+      c.var.logger.info("Training request sent successfully", trainingResponse);
 
       if (!trainingResponse.ok) {
         const errorBody = await trainingResponse.json();

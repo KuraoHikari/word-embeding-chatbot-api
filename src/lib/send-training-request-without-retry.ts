@@ -1,5 +1,3 @@
-import type { Options as KyOptions } from "ky";
-
 import NodeFormData from "form-data";
 import ky from "ky";
 import { Buffer } from "node:buffer";
@@ -9,6 +7,7 @@ import env from "@/env";
 export async function sendTrainingRequestWithoutRetry(
   form: FormData,
   password: string,
+  traningType: "baseline-model" | "proposed-model" = "proposed-model",
 ): Promise<Response> {
   const controller = new AbortController();
   const nodeFormData = new NodeFormData();
@@ -41,8 +40,10 @@ export async function sendTrainingRequestWithoutRetry(
       ...nodeFormData.getHeaders(),
     };
 
-    const response = await ky.post(`${env.PYTHON_SERVER_URL}/train/baseline-model`, {
+    const response = await ky.post(`${env.PYTHON_SERVER_URL}/train/${traningType}`, {
       headers,
+      // ignore ts error
+      // @ts-expect-error request body is FormData
       body: nodeFormData.getBuffer(),
       signal: controller.signal,
       timeout: false, // Non-aktifkan timeout
@@ -50,8 +51,25 @@ export async function sendTrainingRequestWithoutRetry(
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error?.message || `HTTP ${response.status}`);
+      // Handle potential non-JSON responses and validate error shape
+      let errorMessage = `HTTP ${response.status}`;
+
+      try {
+        const errorData: unknown = await response.json();
+
+        // Check if errorData is an object with a message property
+        if (typeof errorData === "object" && errorData !== null && "message" in errorData) {
+          const message = (errorData as { message: unknown }).message;
+          if (typeof message === "string") {
+            errorMessage = message;
+          }
+        }
+      }
+      catch {
+        throw new Error("Failed to parse error response as JSON");
+      }
+
+      throw new Error(errorMessage);
     }
 
     return response;

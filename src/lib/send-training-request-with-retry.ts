@@ -61,6 +61,8 @@ export async function sendTrainingRequestWithRetry(
     const response = await ky.post(`${env.PYTHON_SERVER_URL}/train`, {
       ..._kyOptions,
       headers,
+      // ignore ts error
+      // @ts-expect-error request body is FormData
       body: nodeFormData.getBuffer(),
       signal: controller.signal,
       retry: {
@@ -73,7 +75,7 @@ export async function sendTrainingRequestWithRetry(
         beforeRetry: [
           async ({ retryCount }) => {
             const delay = Math.min(initialDelay * (2 ** retryCount), 120000);
-            console.log(`Retrying in ${delay}ms...`);
+
             await new Promise(resolve => setTimeout(resolve, delay));
           },
         ],
@@ -81,8 +83,25 @@ export async function sendTrainingRequestWithRetry(
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error?.message || `HTTP ${response.status}`);
+      // Handle potential non-JSON responses and validate error shape
+      let errorMessage = `HTTP ${response.status}`;
+
+      try {
+        const errorData: unknown = await response.json();
+
+        // Check if errorData is an object with a message property
+        if (typeof errorData === "object" && errorData !== null && "message" in errorData) {
+          const message = (errorData as { message: unknown }).message;
+          if (typeof message === "string") {
+            errorMessage = message;
+          }
+        }
+      }
+      catch {
+        throw new Error("Failed to parse error response as JSON");
+      }
+
+      throw new Error(errorMessage);
     }
 
     return response;

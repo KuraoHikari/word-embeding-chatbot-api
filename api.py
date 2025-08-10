@@ -1182,9 +1182,9 @@ async def train_proposed_model(
 
         # Test sample queries untuk validasi
         sample_queries = [
-            "apa itu machine learning",
-            "bagaimana cara kerja algoritma",
-            "definisi artificial intelligence"
+            "apa yang harus saya lakukan untuk setup tipe room?",
+            "bagaimana cara mengatur harga kamar?",
+            "jelaskan apa itu advertise pop-up!",
         ]
         
         test_results = {}
@@ -1747,9 +1747,9 @@ async def train_baseline_model(
 
         # Test dengan sample queries untuk validasi baseline
         sample_queries = [
-            "apa itu booking engine",
-            "cara melakukan reservasi",
-            "panduan pemesanan online"
+            "apa yang harus saya lakukan untuk setup tipe room?",
+            "bagaimana cara mengatur harga kamar?",
+            "jelaskan apa itu advertise pop-up!",
         ]
         
         baseline_test_results = {}
