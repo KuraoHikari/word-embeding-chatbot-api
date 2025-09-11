@@ -118,7 +118,11 @@ export const create: AppRouteHandler<CreateChatbot> = async (c) => {
         chatbotData.modelType,
       );
 
+      console.log("Training request sent", trainingResponse);
+
       c.var.logger.info("Training request sent successfully", trainingResponse);
+
+      c.var.logger.debug("Training response status:", trainingResponse);
 
       if (!trainingResponse.ok) {
         const errorBody = await trainingResponse.json();
