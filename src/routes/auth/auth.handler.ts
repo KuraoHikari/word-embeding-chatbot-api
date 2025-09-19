@@ -37,7 +37,14 @@ export const login: AppRouteHandler<LoginRoute> = async (c) => {
   // Generate access token
   const token = await generateAccessToken(user.id);
 
-  return c.json({ access_token: token }, HttpStatusCodes.OK);
+  return c.json({
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+    },
+    access_token: token,
+  }, HttpStatusCodes.OK);
 };
 
 export const register: AppRouteHandler<RegisterRoute> = async (c) => {

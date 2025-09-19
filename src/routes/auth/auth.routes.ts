@@ -43,6 +43,11 @@ export const login = createRoute({
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
       z.object({
+        user: z.object({
+          id: z.number(),
+          email: z.string(),
+          name: z.string(),
+        }),
         access_token: z.string(),
       }),
       "The login response",
