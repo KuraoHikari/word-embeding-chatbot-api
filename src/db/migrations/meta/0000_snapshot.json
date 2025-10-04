@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "436be2e3-c676-44e5-b018-a338882bce04",
+  "id": "6a29b8c1-b8a5-4ec2-9207-50ccb6ab3a42",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "chatbots": {
@@ -28,33 +28,65 @@
           "notNull": false,
           "autoincrement": false
         },
-        "command_template": {
-          "name": "command_template",
+        "is_public": {
+          "name": "is_public",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "welcome_message": {
+          "name": "welcome_message",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "model_ai": {
-          "name": "model_ai",
+        "suggestion_message": {
+          "name": "suggestion_message",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "embeding_model": {
-          "name": "embeding_model",
+        "system_prompt": {
+          "name": "system_prompt",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "sugestion_message": {
-          "name": "sugestion_message",
+        "ai_model": {
+          "name": "ai_model",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "embedding_model": {
+          "name": "embedding_model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'fastext'"
+        },
+        "temperature": {
+          "name": "temperature",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0.3
+        },
+        "max_tokens": {
+          "name": "max_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 500
         },
         "pdf_title": {
           "name": "pdf_title",
@@ -193,13 +225,6 @@
           "notNull": true,
           "autoincrement": true
         },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
         "user_id": {
           "name": "user_id",
           "type": "integer",
@@ -311,6 +336,14 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "is_bot": {
+          "name": "is_bot",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
         },
         "created_at": {
           "name": "created_at",
