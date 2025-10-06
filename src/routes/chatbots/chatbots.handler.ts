@@ -9,7 +9,7 @@ import type { AppRouteHandler } from "@/lib/types";
 
 import db from "@/db";
 import { loadPDFIntoPinecone } from "@/db/pinecone";
-import { chatbots } from "@/db/schema";
+import { chatbots, defaultSystemPrompt } from "@/db/schema";
 import env from "@/env";
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from "@/lib/constants";
 import { TrainingError } from "@/lib/error";
@@ -71,17 +71,22 @@ export const create: AppRouteHandler<CreateChatbot> = async (c) => {
   const [newChatbot] = await db.insert(chatbots).values({
     title: chatbotData.title,
     description: chatbotData.description,
-    commandTemplate: chatbotData.commandTemplate,
-    modelAi: chatbotData.modelAi,
-    embedingModel: chatbotData.embedingModel,
-    sugestionMessage: chatbotData.sugestionMessage,
+    isPublic: chatbotData.isPublic,
+    welcomeMessage: chatbotData.welcomeMessage,
+    suggestionMessage: chatbotData.suggestionMessage,
+    systemPrompt: chatbotData.systemPrompt ? chatbotData.systemPrompt : defaultSystemPrompt,
+    aiModel: chatbotData.aiModel,
+    isProposedModel: chatbotData.isProposedModel,
+    embeddingModel: chatbotData.embeddingModel,
+    temperature: Math.round((chatbotData.temperature ?? 0.3) * 100), // store as integer (e.g. 0.3 -> 30)
+    maxTokens: chatbotData.maxTokens ?? 500,
     pdfTitle: pdf.name,
     pdfLink: pdf.name,
     userId: Number(userId),
   }).returning({
     id: chatbots.id,
     title: chatbots.title,
-    modelAi: chatbots.modelAi,
+    aiModel: chatbots.aiModel,
   });
 
   try {
@@ -91,7 +96,7 @@ export const create: AppRouteHandler<CreateChatbot> = async (c) => {
     const pdfBuffer = await pdf.arrayBuffer();
     const pdfBlob = new Blob([pdfBuffer], { type: pdf.type });
 
-    if (chatbotData.embedingModel === "pinecone") {
+    if (chatbotData.embeddingModel === "pinecone") {
     // 1. Upload ke Pinecone
       await loadPDFIntoPinecone({
         pdfBlob,
@@ -107,18 +112,25 @@ export const create: AppRouteHandler<CreateChatbot> = async (c) => {
       // Tambahkan metadata
       form.append("userId", String(userId));
       form.append("chatbotId", String(newChatbot.id));
-      form.append("modelType", chatbotData.embedingModel);
+      form.append("modelType", chatbotData.embeddingModel);
       form.append("pdfTitle", pdf.name);
 
       // Kirim request ke Python server
       // Kirim request training dengan retry
+      let traningType: "baseline-model" | "proposed-model" = "baseline-model";
+
+      if (chatbotData.isProposedModel) {
+        traningType = "proposed-model";
+      }
+      else {
+        traningType = "baseline-model";
+      }
+
       const trainingResponse = await sendTrainingRequestWithoutRetry(
         form,
         env.API_PASSWORD,
-        chatbotData.modelType,
+        traningType,
       );
-
-      console.log("Training request sent", trainingResponse);
 
       c.var.logger.info("Training request sent successfully", trainingResponse);
 
@@ -231,7 +243,7 @@ export const remove: AppRouteHandler<DeleteChatbot> = async (c) => {
   let successRemoveModelandStorage: boolean = false;
 
   // Check embedding model
-  if (chatbot?.embedingModel === "pinecone") {
+  if (chatbot?.embeddingModel === "pinecone") {
     successRemoveModelandStorage = true;
   }
   else {

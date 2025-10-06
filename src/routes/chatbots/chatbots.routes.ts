@@ -4,20 +4,34 @@ import * as HttpStatusPhrases from "stoker/http-status-phrases";
 import { jsonContent, jsonContentRequired } from "stoker/openapi/helpers";
 import { createErrorSchema, IdParamsSchema } from "stoker/openapi/schemas";
 
-import { patchChatbotsSchema, selectChatbotsSchema } from "@/db/schema";
+import { insertChatbotsSchema, patchChatbotsSchema, selectChatbotsSchema } from "@/db/schema";
 
 const tags = ["Chatbots"];
 
-const CreateChatbotFormSchema = z.object({
-  pdf: z.instanceof(File).or(z.instanceof(Blob)).optional().describe("PDF file upload").openapi({ format: "binary" }),
-  title: z.string().min(1).max(255),
-  description: z.string().max(1000).optional(),
-  commandTemplate: z.string().min(1),
-  modelAi: z.enum(["gpt-3.5-turbo", "gpt-4", "gpt-4-32k", "gpt-4o"]).describe("OpenAI model to use"),
-  embedingModel: z.enum(["word2vec", "fasttext", "pinecone"]).describe("Embedding model type"),
-  sugestionMessage: z.string().min(1),
-  modelType: z.enum(["proposed-model", "baseline-model"]).describe("Type of model"),
-});
+export const CreateChatbotFormSchema = insertChatbotsSchema
+  .omit({
+    pdfLink: true,
+    pdfTitle: true,
+  })
+  .extend({
+    pdf: z.instanceof(File).or(z.instanceof(Blob)).optional().describe("PDF file upload").openapi({ format: "binary" }),
+    isPublic: z.preprocess(
+      val => val === "true" ? true : val === "false" ? false : val,
+      z.boolean(),
+    ),
+    isProposedModel: z.preprocess(
+      val => val === "true" ? true : val === "false" ? false : val,
+      z.boolean(),
+    ),
+    temperature: z.preprocess(
+      val => typeof val === "string" ? Number.parseFloat(val) : val,
+      z.number().min(0.0).max(1.0).default(0.3),
+    ),
+    maxTokens: z.preprocess(
+      val => typeof val === "string" ? Number.parseInt(val, 10) : val,
+      z.number().int().min(100).max(2000).default(500),
+    ),
+  });
 
 export const list = createRoute({
   path: "/chatbots",

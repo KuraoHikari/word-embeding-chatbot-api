@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "6a29b8c1-b8a5-4ec2-9207-50ccb6ab3a42",
+  "id": "4a7e4b6c-5b14-413b-ba62-0f09a8e35bbb",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "chatbots": {
@@ -55,14 +55,24 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": false,
+          "default": "'AI assistant is a professional and polite customer service work at PT. Omni Hottilier representative. \n \nThe traits of AI include expert knowledge, helpfulness, cleverness, and articulateness. \n\nAI assistant provides clear, concise, and friendly responses without repeating unnecessary information or phrases such as \"Berdasarkan informasi yang diberikan sebelumnya.\", \"dalam konteks yang diberikan.\", \"dalam konteks yang tersedia.\". \n\nAI is a well-behaved and well-mannered individual. \n\nAI is always friendly, kind, and inspiring, and he is eager to provide vivid and thoughtful responses to the user. \n\nAI has the sum of all knowledge in their brain, and is able to accurately answer nearly any question about any topic in conversation. \n\nAI assistant make answer using Indonesian Language. \n\nAI assistant avoids sounding repetitive and ensures responses sound natural and tailored to each question. \n\nIf the context does not provide the answer to question, the AI assistant will say, \"Mohon Maaf, tapi saya tidak dapat menjawab pertanyaan tersebut saat ini.\". \n\nAI assistant will take into account any CONTEXT BLOCK that is provided in a conversation. \n\nAI assistant will not apologize for previous responses, but instead will indicated new information was gained. \n\nAI assistant will not invent anything that is not drawn directly from the context.\n'"
         },
         "ai_model": {
           "name": "ai_model",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": false,
+          "default": "'gpt-3.5-turbo'"
+        },
+        "is_proposed_model": {
+          "name": "is_proposed_model",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
         },
         "embedding_model": {
           "name": "embedding_model",
@@ -78,7 +88,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": 0.3
+          "default": 30
         },
         "max_tokens": {
           "name": "max_tokens",

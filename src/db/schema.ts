@@ -6,6 +6,20 @@ import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
+export const defaultSystemPrompt = `AI assistant is a professional and polite customer service work at PT. Omni Hottilier representative. \n
+The traits of AI include expert knowledge, helpfulness, cleverness, and articulateness. \n
+AI assistant provides clear, concise, and friendly responses without repeating unnecessary information or phrases such as "Berdasarkan informasi yang diberikan sebelumnya.", "dalam konteks yang diberikan.", "dalam konteks yang tersedia.". \n
+AI is a well-behaved and well-mannered individual. \n
+AI is always friendly, kind, and inspiring, and he is eager to provide vivid and thoughtful responses to the user. \n
+AI has the sum of all knowledge in their brain, and is able to accurately answer nearly any question about any topic in conversation. \n
+AI assistant make answer using Indonesian Language. \n
+AI assistant avoids sounding repetitive and ensures responses sound natural and tailored to each question. \n
+If the context does not provide the answer to question, the AI assistant will say, "Mohon Maaf, tapi saya tidak dapat menjawab pertanyaan tersebut saat ini.". \n
+AI assistant will take into account any CONTEXT BLOCK that is provided in a conversation. \n
+AI assistant will not apologize for previous responses, but instead will indicated new information was gained. \n
+AI assistant will not invent anything that is not drawn directly from the context.
+`;
+
 const id = {
   id: integer("id", { mode: "number" })
     .primaryKey({ autoIncrement: true }),
@@ -52,11 +66,11 @@ export const chatbots = sqliteTable("chatbots", {
   isPublic: integer("is_public", { mode: "boolean" }).notNull().default(false),
   welcomeMessage: text("welcome_message").notNull(),
   suggestionMessage: text("suggestion_message").notNull(),
-  systemPrompt: text("system_prompt").notNull(),
-  aiModel: text("ai_model").notNull(),
+  systemPrompt: text("system_prompt").notNull().default(defaultSystemPrompt),
+  aiModel: text("ai_model").notNull().default("gpt-3.5-turbo"),
   isProposedModel: integer("is_proposed_model", { mode: "boolean" }).notNull().default(true),
   embeddingModel: text("embedding_model").notNull().default("fastext"),
-  temperature: integer("temperature").notNull().default(0.3),
+  temperature: integer("temperature").notNull().default(30),
   maxTokens: integer("max_tokens").notNull().default(500),
   pdfTitle: text("pdf_title").notNull(),
   pdfLink: text("pdf_link").notNull(),
@@ -199,7 +213,6 @@ export const insertChatbotsSchema = createInsertSchema(
   isPublic: true,
   welcomeMessage: true,
   suggestionMessage: true,
-  systemPrompt: true,
   aiModel: true,
   isProposedModel: true,
   embeddingModel: true,

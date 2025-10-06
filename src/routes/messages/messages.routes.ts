@@ -1,8 +1,6 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import * as HttpStatusCodes from "stoker/http-status-codes";
-import * as HttpStatusPhrases from "stoker/http-status-phrases";
 import { jsonContent, jsonContentRequired } from "stoker/openapi/helpers";
-import { IdParamsSchema } from "stoker/openapi/schemas";
 
 import { insertMessagesSchema, selectMessagesSchema } from "@/db/schema";
 
@@ -51,6 +49,10 @@ export const create = createRoute({
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       z.object({ message: z.string() }),
       "Chatbot not found",
+    ),
+    [HttpStatusCodes.INTERNAL_SERVER_ERROR]: jsonContent(
+      z.object({ message: z.string() }),
+      "Internal Server Error",
     ),
   },
 });

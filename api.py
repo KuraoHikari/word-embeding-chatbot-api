@@ -50,6 +50,20 @@ bm25_cache = {}
 # OpenAI Configuration
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
+# Default Prompt for generate_answer_with_gpt
+DEFAULT_SYSTEM_PROMPT ="""AI assistant is a professional and polite customer service work at PT. Omni Hottilier representative. 
+The traits of AI include expert knowledge, helpfulness, cleverness, and articulateness. 
+AI assistant provides clear, concise, and friendly responses without repeating unnecessary information or phrases such as "Berdasarkan informasi yang diberikan sebelumnya.", "dalam konteks yang diberikan.", "dalam konteks yang tersedia.".
+AI is a well-behaved and well-mannered individual. 
+AI is always friendly, kind, and inspiring, and he is eager to provide vivid and thoughtful responses to the user. 
+AI has the sum of all knowledge in their brain, and is able to accurately answer nearly any question about any topic in conversation. 
+AI assistant make answer using Indonesian Language. 
+AI assistant avoids sounding repetitive and ensures responses sound natural and tailored to each question. 
+If the context does not provide the answer to question, the AI assistant will say, "Mohon Maaf, tapi saya tidak dapat menjawab pertanyaan tersebut saat ini.".
+AI assistant will take into account any CONTEXT BLOCK that is provided in a conversation. 
+AI assistant will not apologize for previous responses, but instead will indicated new information was gained. 
+AI assistant will not invent anything that is not drawn directly from the context."""
+
 @dataclass
 class QueryComplexity:
     """Analisis kompleksitas query"""
@@ -120,14 +134,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Setup CORS dengan konfigurasi yang lebih aman
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=os.getenv("ALLOWED_ORIGINS", "http://localhost:9999").split(","),
-    allow_credentials=True,
-    allow_methods=["GET", "POST"],
-    allow_headers=["*"],
-)
+# # Setup CORS dengan konfigurasi yang lebih aman
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=os.getenv("ALLOWED_ORIGINS", "http://localhost:9999").split(","),
+#     allow_credentials=True,
+#     allow_methods=["GET", "POST"],
+#     allow_headers=["*"],
+# )
 
 # Konfigurasi
 EMBEDDING_DIM = 100  # Dikurangi untuk performa yang lebih baik
@@ -406,7 +420,10 @@ def calculate_embedding(tokens: List[str], model) -> Optional[np.ndarray]:
 async def generate_answer_with_gpt(
     query: str, 
     contexts: List[MMRResult], 
-    model: str = "gpt-3.5-turbo"
+    model: str = "gpt-3.5-turbo",
+    system_prompt: str = DEFAULT_SYSTEM_PROMPT,
+    max_tokens: int = 500,
+    temperature: float = 0.7
 ) -> Dict[str, Any]:
     """Generate jawaban menggunakan OpenAI GPT dengan format prompt baru"""
     if not openai.api_key:
@@ -414,20 +431,6 @@ async def generate_answer_with_gpt(
     
     # Siapkan context text
     context_text = "\n".join([ctx.text for ctx in contexts])
-    
-    # Format prompt baru sesuai permintaan
-    system_prompt = """AI assistant is a professional and polite customer service work at PT. Omni Hottilier representative. 
-The traits of AI include expert knowledge, helpfulness, cleverness, and articulateness. 
-AI assistant provides clear, concise, and friendly responses without repeating unnecessary information or phrases such as "Berdasarkan informasi yang diberikan sebelumnya.", "dalam konteks yang diberikan.", "dalam konteks yang tersedia.".
-AI is a well-behaved and well-mannered individual. 
-AI is always friendly, kind, and inspiring, and he is eager to provide vivid and thoughtful responses to the user. 
-AI has the sum of all knowledge in their brain, and is able to accurately answer nearly any question about any topic in conversation. 
-AI assistant make answer using Indonesian Language. 
-AI assistant avoids sounding repetitive and ensures responses sound natural and tailored to each question. 
-If the context does not provide the answer to question, the AI assistant will say, "Mohon Maaf, tapi saya tidak dapat menjawab pertanyaan tersebut saat ini.".
-AI assistant will take into account any CONTEXT BLOCK that is provided in a conversation. 
-AI assistant will not apologize for previous responses, but instead will indicated new information was gained. 
-AI assistant will not invent anything that is not drawn directly from the context."""
     
     user_prompt = f"""Pertanyaan: {query}
 
@@ -444,8 +447,8 @@ Berdasarkan konteks di atas, berikan jawaban yang jelas dan langsung dalam bahas
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            max_tokens=500,
-            temperature=0.3,
+            max_tokens=max_tokens,
+            temperature=temperature,
             timeout=30
         )
         
@@ -1284,7 +1287,10 @@ async def query_proposed_model(
     mmrLambda: float = Form(default=0.7, ge=0.0, le=1.0),
     useGPT: bool = Form(default=False),
     gptModel: str = Form(default="gpt-3.5-turbo"),
-    includeRAGAS: bool = Form(default=False)
+    includeRAGAS: bool = Form(default=False),
+    promptTemplate: Optional[str] = Form(default=None),
+    maxToken: Optional[int] = Form(default=500, ge=100, le=2000),
+    temperature: Optional[float] = Form(default=0.7, ge=0.0, le=1.0)
 ):
     """Query menggunakan proposed hybrid model dengan semua fitur advanced"""
     
@@ -1390,11 +1396,18 @@ async def query_proposed_model(
         if useGPT and mmr_results:
             try:
                 logger.info("Generating answer with GPT")
+                if not promptTemplate:
+                    promptTemplate = DEFAULT_SYSTEM_PROMPT
+
                 gpt_response = await generate_answer_with_gpt(
                     query=query,
                     contexts=mmr_results,
-                    model=gptModel
+                    model=gptModel,
+                    system_prompt=promptTemplate,
+                    max_tokens=maxToken,
+                    temperature=temperature
                 )
+
             except Exception as e:
                 logger.error(f"GPT generation failed: {str(e)}")
                 gpt_response = {"error": str(e)}
@@ -1871,7 +1884,10 @@ async def query_baseline_model(
     topK: int = Form(default=5, ge=1, le=20),
     useGPT: bool = Form(default=False),
     gptModel: str = Form(default="gpt-3.5-turbo"),
-    includeRAGAS: bool = Form(default=False)
+    includeRAGAS: bool = Form(default=False),
+    promptTemplate: Optional[str] = Form(default=None),
+    maxToken: Optional[int] = Form(default=500, ge=100, le=2000),
+    temperature: Optional[float] = Form(default=0.7, ge=0.0, le=1.0)
 ):
     """Query baseline model sesuai diagram - Simple FastText + Cosine Similarity + Top-k"""
     
@@ -1985,12 +2001,20 @@ async def query_baseline_model(
                         doc_index=result["doc_index"]
                     ) for result in baseline_results
                 ]
-                
+
+                # Gunakan prompt template dari DEFAULT_SYSTEM_PROMPT jika tidak disediakan
+                if not promptTemplate:
+                    promptTemplate = DEFAULT_SYSTEM_PROMPT
+
                 gpt_response = await generate_answer_with_gpt(
                     query=query,
                     contexts=mmr_results,
-                    model=gptModel
+                    model=gptModel,
+                    system_prompt=promptTemplate,
+                    maxToken=maxToken,
+                    temperature=temperature
                 )
+
             except Exception as e:
                 logger.error(f"ChatGPT generation failed (baseline): {str(e)}")
                 gpt_response = {"error": str(e)}
@@ -2045,7 +2069,7 @@ async def query_baseline_model(
 
         # Add GPT response if available
         if gpt_response:
-            response_data["chatgpt_generation"] = gpt_response
+            response_data["gpt_generation"] = gpt_response
 
         # Add RAGAS metrics if available
         if ragas_metrics and not isinstance(ragas_metrics, dict) or "error" not in ragas_metrics:
