@@ -1,5 +1,3 @@
-import type { Options as KyOptions } from "ky";
-
 import NodeFormData from "form-data";
 import ky from "ky";
 

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "4a7e4b6c-5b14-413b-ba62-0f09a8e35bbb",
+  "id": "929b102f-776c-4883-a66a-82af3fec4e58",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "chatbots": {
@@ -56,7 +56,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'AI assistant is a professional and polite customer service work at PT. Omni Hottilier representative. \n \nThe traits of AI include expert knowledge, helpfulness, cleverness, and articulateness. \n\nAI assistant provides clear, concise, and friendly responses without repeating unnecessary information or phrases such as \"Berdasarkan informasi yang diberikan sebelumnya.\", \"dalam konteks yang diberikan.\", \"dalam konteks yang tersedia.\". \n\nAI is a well-behaved and well-mannered individual. \n\nAI is always friendly, kind, and inspiring, and he is eager to provide vivid and thoughtful responses to the user. \n\nAI has the sum of all knowledge in their brain, and is able to accurately answer nearly any question about any topic in conversation. \n\nAI assistant make answer using Indonesian Language. \n\nAI assistant avoids sounding repetitive and ensures responses sound natural and tailored to each question. \n\nIf the context does not provide the answer to question, the AI assistant will say, \"Mohon Maaf, tapi saya tidak dapat menjawab pertanyaan tersebut saat ini.\". \n\nAI assistant will take into account any CONTEXT BLOCK that is provided in a conversation. \n\nAI assistant will not apologize for previous responses, but instead will indicated new information was gained. \n\nAI assistant will not invent anything that is not drawn directly from the context.\n'"
+          "default": "'AI assistant is a professional and polite customer service work at PT. Omni Hottilier representative. \n\nThe traits of AI include expert knowledge, helpfulness, cleverness, and articulateness. \n\nAI assistant provides clear, concise, and friendly responses without repeating unnecessary information or phrases such as \"Berdasarkan informasi yang diberikan sebelumnya.\", \"dalam konteks yang diberikan.\", \"dalam konteks yang tersedia.\". \n\nAI is a well-behaved and well-mannered individual. \n\nAI is always friendly, kind, and inspiring, and he is eager to provide vivid and thoughtful responses to the user. \n\nAI has the sum of all knowledge in their brain, and is able to accurately answer nearly any question about any topic in conversation. \n\nAI assistant make answer using Indonesian Language. \n\nAI assistant avoids sounding repetitive and ensures responses sound natural and tailored to each question. \n\nIf the context does not provide the answer to question, the AI assistant will say, \"Mohon Maaf, tapi saya tidak dapat menjawab pertanyaan tersebut saat ini.\". \n\nAI assistant will take into account any CONTEXT BLOCK that is provided in a conversation. \n\nAI assistant will not apologize for previous responses, but instead will indicated new information was gained. \n\nAI assistant will not invent anything that is not drawn directly from the context.\n'"
         },
         "ai_model": {
           "name": "ai_model",
@@ -391,6 +391,240 @@
           "tableTo": "users",
           "columnsFrom": [
             "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "model_responses": {
+      "name": "model_responses",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "message_id": {
+          "name": "message_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "model_type": {
+          "name": "model_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "query": {
+          "name": "query",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "processing_time": {
+          "name": "processing_time",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "results": {
+          "name": "results",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "complexity_analysis": {
+          "name": "complexity_analysis",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "search_pipeline": {
+          "name": "search_pipeline",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "model_approach": {
+          "name": "model_approach",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "pipeline_steps": {
+          "name": "pipeline_steps",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "gpt_generation": {
+          "name": "gpt_generation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ragas_evaluation": {
+          "name": "ragas_evaluation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "message": {
+          "name": "message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "chatbot_id": {
+          "name": "chatbot_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "model_responses_message_id_unique": {
+          "name": "model_responses_message_id_unique",
+          "columns": [
+            "message_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "model_responses_message_id_messages_id_fk": {
+          "name": "model_responses_message_id_messages_id_fk",
+          "tableFrom": "model_responses",
+          "tableTo": "messages",
+          "columnsFrom": [
+            "message_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "model_responses_user_id_users_id_fk": {
+          "name": "model_responses_user_id_users_id_fk",
+          "tableFrom": "model_responses",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "model_responses_chatbot_id_chatbots_id_fk": {
+          "name": "model_responses_chatbot_id_chatbots_id_fk",
+          "tableFrom": "model_responses",
+          "tableTo": "chatbots",
+          "columnsFrom": [
+            "chatbot_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "queryProposedModelResponses": {
+      "name": "queryProposedModelResponses",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "message_id": {
+          "name": "message_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "queryProposedModelResponses_message_id_messages_id_fk": {
+          "name": "queryProposedModelResponses_message_id_messages_id_fk",
+          "tableFrom": "queryProposedModelResponses",
+          "tableTo": "messages",
+          "columnsFrom": [
+            "message_id"
           ],
           "columnsTo": [
             "id"

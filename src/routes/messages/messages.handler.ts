@@ -4,7 +4,7 @@ import * as HttpStatusPhrases from "stoker/http-status-phrases";
 import type { AppRouteHandler, QueryBaselineModelResponse, QueryProposedModelResponse } from "@/lib/types";
 
 import db from "@/db";
-import { messages } from "@/db/schema";
+import { messages, modelResponses } from "@/db/schema";
 import env from "@/env";
 import { sendQueryRequestWithoutRetry } from "@/lib/send-query-request-without-retry";
 
@@ -68,7 +68,6 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
     },
     env.API_PASSWORD,
   );
-  console.log("🚀 ~ create ~ response:", response);
 
   if (!response.ok) {
     return c.json(
@@ -98,7 +97,9 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
     userId: chatbot.userId,
     conversationId: message.conversationId,
     isBot: true,
-    text: results.gpt_generation?.answer || "Maaf, saya tidak dapat menjawab pertanyaan Anda saat ini.",
+    text: chatbot.isProposedModel
+      ? (results as QueryProposedModelResponse).gpt_generation?.answer || "Maaf, saya tidak dapat menjawab pertanyaan Anda saat ini."
+      : (results as QueryBaselineModelResponse).gpt_generation?.answer || "Maaf, saya tidak dapat menjawab pertanyaan Anda saat ini.",
   }).returning();
 
   if (!botAnswer) {
@@ -107,6 +108,40 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
       HttpStatusCodes.INTERNAL_SERVER_ERROR,
     );
   }
+
+  // Save the model response to database
+  const modelResponseData = chatbot.isProposedModel
+    ? {
+        messageId: botAnswer[0].id,
+        modelType: "proposed" as const,
+        query: results.query,
+        processingTime: Math.round(results.processing_time),
+        results: results.results,
+        metadata: results.metadata,
+        complexityAnalysis: (results as QueryProposedModelResponse).complexity_analysis,
+        searchPipeline: (results as QueryProposedModelResponse).search_pipeline,
+        gptGeneration: results.gpt_generation || null,
+        ragasEvaluation: results.ragas_evaluation || null,
+        message: (results as QueryProposedModelResponse).message || null,
+        userId: chatbot.userId,
+        chatbotId: chatbot.id,
+      }
+    : {
+        messageId: botAnswer[0].id,
+        modelType: "baseline" as const,
+        query: results.query,
+        processingTime: Math.round(results.processing_time),
+        results: results.results,
+        metadata: results.metadata,
+        modelApproach: (results as QueryBaselineModelResponse).model_approach,
+        pipelineSteps: (results as QueryBaselineModelResponse).pipeline_steps,
+        gptGeneration: (results as QueryBaselineModelResponse).gpt_generation || null,
+        ragasEvaluation: results.ragas_evaluation || null,
+        userId: chatbot.userId,
+        chatbotId: chatbot.id,
+      };
+
+  await db.insert(modelResponses).values(modelResponseData);
 
   return c.json({ ...botAnswer[0], results }, HttpStatusCodes.CREATED);
 };

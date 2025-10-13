@@ -6,7 +6,7 @@ CREATE TABLE `chatbots` (
 	`welcome_message` text NOT NULL,
 	`suggestion_message` text NOT NULL,
 	`system_prompt` text DEFAULT 'AI assistant is a professional and polite customer service work at PT. Omni Hottilier representative. 
- 
+
 The traits of AI include expert knowledge, helpfulness, cleverness, and articulateness. 
 
 AI assistant provides clear, concise, and friendly responses without repeating unnecessary information or phrases such as "Berdasarkan informasi yang diberikan sebelumnya.", "dalam konteks yang diberikan.", "dalam konteks yang tersedia.". 
@@ -77,6 +77,38 @@ CREATE TABLE `messages` (
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE TABLE `model_responses` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`message_id` integer NOT NULL,
+	`model_type` text NOT NULL,
+	`query` text NOT NULL,
+	`processing_time` integer NOT NULL,
+	`results` text NOT NULL,
+	`metadata` text NOT NULL,
+	`complexity_analysis` text,
+	`search_pipeline` text,
+	`model_approach` text,
+	`pipeline_steps` text,
+	`gpt_generation` text,
+	`ragas_evaluation` text,
+	`message` text,
+	`user_id` integer NOT NULL,
+	`chatbot_id` integer NOT NULL,
+	`created_at` integer,
+	`updated_at` integer,
+	FOREIGN KEY (`message_id`) REFERENCES `messages`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`chatbot_id`) REFERENCES `chatbots`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE TABLE `queryProposedModelResponses` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`message_id` integer NOT NULL,
+	`created_at` integer,
+	`updated_at` integer,
+	FOREIGN KEY (`message_id`) REFERENCES `messages`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
 CREATE TABLE `tasks` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`name` text NOT NULL,
@@ -94,4 +126,5 @@ CREATE TABLE `users` (
 	`updated_at` integer
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX `model_responses_message_id_unique` ON `model_responses` (`message_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `emailUniqueIndex` ON `users` (lower("email"));

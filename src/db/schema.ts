@@ -107,14 +107,73 @@ export const messages = sqliteTable("messages", {
   ...timestamps,
 });
 
+// Model Responses Table - for storing both proposed and baseline model data
+export const modelResponses = sqliteTable("model_responses", {
+  ...id,
+  messageId: integer("message_id")
+    .notNull()
+    .references(() => messages.id)
+    .unique(), // Ensures a one-to-one relationship
+  modelType: text("model_type", { enum: ["proposed", "baseline"] }).notNull(),
+
+  // Common fields for both model types
+  query: text("query").notNull(),
+  processingTime: integer("processing_time").notNull(),
+  results: text("results", { mode: "json" }).notNull(),
+  metadata: text("metadata", { mode: "json" }).notNull(),
+
+  // Fields specific to Proposed Model (nullable for baseline)
+  complexityAnalysis: text("complexity_analysis", { mode: "json" }),
+  searchPipeline: text("search_pipeline", { mode: "json" }),
+
+  // Fields specific to Baseline Model (nullable for proposed)
+  modelApproach: text("model_approach"),
+  pipelineSteps: text("pipeline_steps", { mode: "json" }),
+
+  // Optional fields that can exist in both models
+  gptGeneration: text("gpt_generation", { mode: "json" }),
+  ragasEvaluation: text("ragas_evaluation", { mode: "json" }),
+  message: text("message"),
+
+  userId: integer("user_id").notNull().references(() => users.id),
+  chatbotId: integer("chatbot_id").notNull().references(() => chatbots.id),
+  ...timestamps,
+});
+
+export const modelResponsesRelations = relations(modelResponses, ({ one }) => ({
+  message: one(messages, {
+    fields: [modelResponses.messageId],
+    references: [messages.id],
+  }),
+  chatbot: one(chatbots, {
+    fields: [modelResponses.chatbotId],
+    references: [chatbots.id],
+  }),
+  user: one(users, {
+    fields: [modelResponses.userId],
+    references: [users.id],
+  }),
+}));
+
+export const queryProposedModelResponses = sqliteTable("queryProposedModelResponses", {
+  ...id,
+  messageId: integer("message_id").notNull().references(() => messages.id),
+  ...timestamps,
+});
+
 export const messagesRelations = relations(messages, ({ one }) => ({
+  user: one(users, {
+    fields: [messages.userId],
+    references: [users.id],
+  }),
   conversation: one(conversations, {
     fields: [messages.conversationId],
     references: [conversations.id],
   }),
-  user: one(users, {
-    fields: [messages.userId],
-    references: [users.id],
+  // New relation to model response
+  modelResponse: one(modelResponses, {
+    fields: [messages.id],
+    references: [modelResponses.messageId],
   }),
 }));
 
@@ -123,6 +182,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   contacts: many(contacts),
   conversations: many(conversations),
   messages: many(messages),
+  modelResponses: many(modelResponses),
 }));
 
 export const chatbotsRelations = relations(chatbots, ({ one, many }) => ({
@@ -131,6 +191,7 @@ export const chatbotsRelations = relations(chatbots, ({ one, many }) => ({
     references: [users.id],
   }),
   conversations: many(conversations),
+  modelResponses: many(modelResponses),
 }));
 
 export const contactsRelations = relations(contacts, ({ one, many }) => ({
