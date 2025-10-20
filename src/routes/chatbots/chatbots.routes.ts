@@ -1,10 +1,10 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import * as HttpStatusPhrases from "stoker/http-status-phrases";
-import { jsonContent, jsonContentRequired } from "stoker/openapi/helpers";
+import { jsonContent } from "stoker/openapi/helpers";
 import { createErrorSchema, IdParamsSchema } from "stoker/openapi/schemas";
 
-import { insertChatbotsSchema, patchChatbotsSchema, selectChatbotsSchema } from "@/db/schema";
+import { insertChatbotsSchema, patchChatbotsFormSchema, selectChatbotsSchema } from "@/db/schema";
 
 const tags = ["Chatbots"];
 
@@ -176,10 +176,17 @@ export const patch = createRoute({
   tags,
   request: {
     params: IdParamsSchema,
-    body: jsonContentRequired(
-      patchChatbotsSchema,
-      "The chatbot updates",
-    ),
+    body: {
+      content: {
+        "multipart/form-data": {
+          schema: patchChatbotsFormSchema,
+        },
+      },
+      required: true,
+    },
+    headers: z.object({
+      authorization: z.string().optional(),
+    }),
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
@@ -195,7 +202,7 @@ export const patch = createRoute({
       HttpStatusPhrases.UNAUTHORIZED,
     ),
     [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
-      createErrorSchema(patchChatbotsSchema)
+      createErrorSchema(patchChatbotsFormSchema)
         .or(createErrorSchema(IdParamsSchema)),
       "The validation error(s)",
     ),

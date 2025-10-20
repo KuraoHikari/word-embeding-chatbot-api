@@ -42,6 +42,7 @@ export const list: AppRouteHandler<ListChatbot> = async (c) => {
 
 export const create: AppRouteHandler<CreateChatbot> = async (c) => {
   const userId = c.get("userId");
+  console.log("🚀 ~ create ~ userId:", userId);
 
   if (!userId) {
     return c.json(
@@ -171,10 +172,41 @@ export const patch: AppRouteHandler<PatchChatbot> = async (c) => {
   }
 
   const { id } = c.req.valid("param");
+  const formData = c.req.valid("form");
+  const { pdf, ...updates } = formData;
 
-  const updates = c.req.valid("json");
+  // Check if chatbot exists and belongs to user
+  const existingChatbot = await db.query.chatbots.findFirst({
+    where(fields, operators) {
+      return operators.and(
+        operators.eq(fields.id, id),
+        operators.eq(fields.userId, userId),
+      );
+    },
+  });
 
-  if (Object.keys(updates).length === 0) {
+  if (!existingChatbot) {
+    return c.json(
+      { message: HttpStatusPhrases.NOT_FOUND },
+      HttpStatusCodes.NOT_FOUND,
+    );
+  }
+
+  // Remove undefined/empty values from updates
+  const cleanUpdates: Record<string, any> = {};
+  for (const [key, value] of Object.entries(updates)) {
+    if (value !== undefined && value !== "") {
+      cleanUpdates[key] = value;
+    }
+  }
+
+  // Convert temperature back to integer if provided
+  if (cleanUpdates.temperature !== undefined) {
+    cleanUpdates.temperature = Math.round(cleanUpdates.temperature * 100);
+  }
+
+  // Check if there are any updates
+  if (Object.keys(cleanUpdates).length === 0 && !pdf) {
     return c.json(
       {
         success: false,
@@ -192,22 +224,113 @@ export const patch: AppRouteHandler<PatchChatbot> = async (c) => {
       HttpStatusCodes.UNPROCESSABLE_ENTITY,
     );
   }
-  const [chatbot] = await db.update(chatbots)
-    .set(updates)
-    .where(eq(chatbots.id, id))
-    .returning();
 
-  if (!chatbot) {
+  try {
+    // If PDF is provided, we need to retrain the model
+    if (pdf && pdf instanceof File) {
+      // Validate PDF size
+      if (pdf.size > 10 * 1024 * 1024) {
+        return c.json(
+          { message: "PDF file size exceeds 10MB" },
+          HttpStatusCodes.BAD_REQUEST,
+        );
+      }
+
+      // Remove old model and storage directories (only for non-pinecone models)
+      if (existingChatbot.embeddingModel !== "pinecone") {
+        const storagePath = path.resolve(__dirname, "../../../storage");
+        const chatbotPath = path.join(storagePath, userId.toString(), existingChatbot.id.toString());
+
+        if (fs.existsSync(chatbotPath)) {
+          fs.rmSync(chatbotPath, { recursive: true, force: true });
+        }
+
+        const modelPath = path.resolve(__dirname, "../../../model");
+        const chatbotModelPath = path.join(modelPath, userId.toString(), existingChatbot.id.toString());
+
+        if (fs.existsSync(chatbotModelPath)) {
+          fs.rmSync(chatbotModelPath, { recursive: true, force: true });
+        }
+      }
+
+      // Add PDF metadata to updates
+      cleanUpdates.pdfTitle = pdf.name;
+      cleanUpdates.pdfLink = pdf.name;
+
+      // Process PDF for training
+      const pdfBuffer = await pdf.arrayBuffer();
+      const pdfBlob = new Blob([pdfBuffer], { type: pdf.type });
+
+      // Determine embedding model (use existing if not updated)
+      const embeddingModel = cleanUpdates.embeddingModel || existingChatbot.embeddingModel;
+
+      if (embeddingModel === "pinecone") {
+        // Upload to Pinecone
+        await loadPDFIntoPinecone({
+          pdfBlob,
+          namespace: existingChatbot.id.toString(),
+        });
+      }
+      else {
+        const form = new FormData();
+        form.append("pdf", pdfBlob, "document.pdf");
+        form.append("userId", String(userId));
+        form.append("chatbotId", String(existingChatbot.id));
+        form.append("modelType", embeddingModel);
+        form.append("pdfTitle", pdf.name);
+
+        // Determine training type (use existing if not updated)
+        const isProposedModel = cleanUpdates.isProposedModel !== undefined
+          ? cleanUpdates.isProposedModel
+          : existingChatbot.isProposedModel;
+
+        const trainingType: "baseline-model" | "proposed-model" = isProposedModel
+          ? "proposed-model"
+          : "baseline-model";
+
+        const trainingResponse = await sendTrainingRequestWithoutRetry(
+          form,
+          env.API_PASSWORD,
+          trainingType,
+        );
+
+        c.var.logger.info("Training request sent successfully for update");
+
+        if (!trainingResponse.ok) {
+          const errorBody = await trainingResponse.json();
+          throw new TrainingError("Training failed during update", errorBody);
+        }
+      }
+    }
+
+    // Update chatbot in database
+    const [updatedChatbot] = await db.update(chatbots)
+      .set(cleanUpdates)
+      .where(eq(chatbots.id, id))
+      .returning();
+
+    if (!updatedChatbot) {
+      return c.json(
+        { message: HttpStatusPhrases.INTERNAL_SERVER_ERROR },
+        HttpStatusCodes.INTERNAL_SERVER_ERROR,
+      );
+    }
+
     return c.json(
-      {
-        message: HttpStatusPhrases.NOT_FOUND,
-      },
-      HttpStatusCodes.NOT_FOUND,
+      { message: "Chatbot updated successfully" },
+      HttpStatusCodes.OK,
     );
   }
-  return c.json({
-    message: "Chatbot updated successfully",
-  }, HttpStatusCodes.OK);
+  catch (error) {
+    console.error("Error updating chatbot:", error);
+    return c.json(
+      {
+        message: HttpStatusPhrases.INTERNAL_SERVER_ERROR,
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      HttpStatusCodes.INTERNAL_SERVER_ERROR,
+    );
+  }
 };
 
 export const remove: AppRouteHandler<DeleteChatbot> = async (c) => {

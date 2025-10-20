@@ -1,10 +1,10 @@
 import type { SQL } from "drizzle-orm";
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 
+import { z } from "@hono/zod-openapi";
 import { relations, sql } from "drizzle-orm";
 import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { z } from "zod";
 
 export const defaultSystemPrompt = `AI assistant is a professional and polite customer service work at PT. Omni Hottilier representative. \n
 The traits of AI include expert knowledge, helpfulness, cleverness, and articulateness. \n
@@ -260,11 +260,11 @@ export const insertChatbotsSchema = createInsertSchema(
     welcomeMessage: schema => schema.welcomeMessage.min(1).max(1000),
     suggestionMessage: schema => schema.suggestionMessage.min(1).max(1000),
     systemPrompt: schema => schema.systemPrompt.min(1).max(2000),
-    aiModel: schema => schema.aiModel.min(1).max(500),
+    aiModel: schema => schema.aiModel.pipe(z.enum(["gpt-3.5-turbo", "gpt-4", "gpt-4-32k", "gpt-4o"])),
     isProposedModel: schema => schema.isProposedModel,
-    embeddingModel: schema => schema.embeddingModel.min(1).max(500),
-    temperature: schema => schema.temperature.min(0).max(1),
-    maxTokens: schema => schema.maxTokens.min(1).max(4000),
+    embeddingModel: schema => schema.embeddingModel.pipe(z.enum(["word2vec", "fasttext", "pinecone"])),
+    temperature: schema => schema.temperature.min(0).max(100),
+    maxTokens: schema => schema.maxTokens.min(100).max(2000),
     pdfTitle: schema => schema.pdfTitle.min(1).max(500),
     pdfLink: schema => schema.pdfLink.min(1).max(500),
   },
@@ -292,6 +292,26 @@ export const patchChatbotsSchema = insertChatbotsSchema.omit({
   pdfTitle: true,
   pdfLink: true,
 }).partial();
+
+export const patchChatbotsFormSchema = patchChatbotsSchema.extend({
+  pdf: z.instanceof(File).or(z.instanceof(Blob)).optional().describe("PDF file upload (optional - only if retraining)").openapi({ format: "binary" }),
+  isPublic: z.preprocess(
+    val => val === "true" ? true : val === "false" ? false : val === undefined ? undefined : val,
+    z.boolean().optional(),
+  ),
+  isProposedModel: z.preprocess(
+    val => val === "true" ? true : val === "false" ? false : val === undefined ? undefined : val,
+    z.boolean().optional(),
+  ),
+  temperature: z.preprocess(
+    val => typeof val === "string" && val !== "" ? Number.parseFloat(val) : val === "" ? undefined : val,
+    z.number().min(0.0).max(1.0).optional(),
+  ),
+  maxTokens: z.preprocess(
+    val => typeof val === "string" && val !== "" ? Number.parseInt(val, 10) : val === "" ? undefined : val,
+    z.number().int().min(100).max(2000).optional(),
+  ),
+});
 
 export const selectContactsSchema = createSelectSchema(contacts);
 

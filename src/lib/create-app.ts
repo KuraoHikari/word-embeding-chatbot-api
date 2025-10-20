@@ -17,8 +17,8 @@ export function createRouter() {
 
 export default function createApp() {
   const app = createRouter();
-  app.use("*", cors({ origin: "*" })); // Allow CORS for all origins
-  app.use("*", apiLimiter);
+  app.use("*", cors()); // Allow CORS for all origins
+  // app.use("*", apiLimiter);
   app.use(pinoLogger());
 
   app.notFound(notFound);
