@@ -9,6 +9,13 @@ import env from "@/env";
 
 export const authMiddleware: MiddlewareHandler = async (c, next) => {
   const authHeader = c.req.header("Authorization");
+  console.log("Auth Middleware Invoked");
+
+  // // console the body
+  // console.log(c.req.valid("form"));
+
+  // const formData = c.req.valid("form");
+  // const { pdf, ...chatbotData } = formData;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return c.json({ message: HttpStatusPhrases.UNAUTHORIZED }, HttpStatusCodes.UNAUTHORIZED);
