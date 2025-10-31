@@ -9,7 +9,7 @@ import type { AppRouteHandler } from "@/lib/types";
 
 import db from "@/db";
 import { loadPDFIntoPinecone } from "@/db/pinecone";
-import { chatbots, defaultSystemPrompt } from "@/db/schema";
+import { chatbots, contacts, conversations, defaultSystemPrompt } from "@/db/schema";
 import env from "@/env";
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from "@/lib/constants";
 import { TrainingError } from "@/lib/error";
@@ -42,7 +42,6 @@ export const list: AppRouteHandler<ListChatbot> = async (c) => {
 
 export const create: AppRouteHandler<CreateChatbot> = async (c) => {
   const userId = c.get("userId");
-  console.log("🚀 ~ create ~ userId:", userId);
 
   if (!userId) {
     return c.json(
@@ -69,6 +68,9 @@ export const create: AppRouteHandler<CreateChatbot> = async (c) => {
     );
   }
 
+  // Insert chatbot data into database
+  // create test contact and conversation
+
   const [newChatbot] = await db.insert(chatbots).values({
     title: chatbotData.title,
     description: chatbotData.description,
@@ -88,6 +90,20 @@ export const create: AppRouteHandler<CreateChatbot> = async (c) => {
     id: chatbots.id,
     title: chatbots.title,
     aiModel: chatbots.aiModel,
+  });
+
+  const testContact = await db.insert(contacts).values({
+    userId: Number(userId),
+    name: "Test User",
+    email: "test@example.com",
+  }).returning({
+    id: contacts.id,
+  });
+
+  await db.insert(conversations).values({
+    userId: Number(userId),
+    chatbotId: newChatbot.id, // temporary, will update later
+    contactId: testContact[0].id,
   });
 
   try {
