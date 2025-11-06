@@ -4,7 +4,7 @@ import * as HttpStatusPhrases from "stoker/http-status-phrases";
 import { jsonContent } from "stoker/openapi/helpers";
 import { createErrorSchema, IdParamsSchema } from "stoker/openapi/schemas";
 
-import { insertChatbotsSchema, patchChatbotsFormSchema, selectChatbotsSchema } from "@/db/schema";
+import { detailChatbotSchema, insertChatbotsSchema, patchChatbotsFormSchema, selectChatbotsSchema } from "@/db/schema";
 
 const tags = ["Chatbots"];
 
@@ -113,7 +113,7 @@ export const getOne = createRoute({
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      z.object({ message: z.string() }),
+      detailChatbotSchema,
       "Chatbot retrieved successfully",
     ),
     [HttpStatusCodes.BAD_REQUEST]: jsonContent(

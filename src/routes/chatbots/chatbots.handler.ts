@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,13 +9,13 @@ import type { AppRouteHandler } from "@/lib/types";
 
 import db from "@/db";
 import { loadPDFIntoPinecone } from "@/db/pinecone";
-import { chatbots, contacts, conversations, defaultSystemPrompt } from "@/db/schema";
+import { chatbots, contacts, conversations, defaultSystemPrompt, messages } from "@/db/schema";
 import env from "@/env";
 import { ZOD_ERROR_CODES, ZOD_ERROR_MESSAGES } from "@/lib/constants";
 import { TrainingError } from "@/lib/error";
 import { sendTrainingRequestWithoutRetry } from "@/lib/send-training-request-without-retry";
 
-import type { CreateChatbot, DeleteChatbot, ListChatbot, PatchChatbot } from "./chatbots.routes";
+import type { CreateChatbot, DeleteChatbot, GetChatbot, ListChatbot, PatchChatbot } from "./chatbots.routes";
 
 // Get the current directory equivalent to __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -38,6 +38,70 @@ export const list: AppRouteHandler<ListChatbot> = async (c) => {
   });
 
   return c.json(chatbots, HttpStatusCodes.OK);
+};
+
+export const getOne: AppRouteHandler<GetChatbot> = async (c) => {
+  const userId = c.get("userId");
+
+  if (!userId) {
+    return c.json(
+      { message: HttpStatusPhrases.UNAUTHORIZED },
+      HttpStatusCodes.UNAUTHORIZED,
+    );
+  }
+
+  const { id } = c.req.valid("param");
+
+  // Get chatbot details
+  const chatbot = await db.query.chatbots.findFirst({
+    where(fields, operators) {
+      return operators.and(
+        operators.eq(fields.id, id),
+        operators.eq(fields.userId, userId),
+      );
+    },
+  });
+
+  if (!chatbot) {
+    return c.json(
+      { message: HttpStatusPhrases.NOT_FOUND },
+      HttpStatusCodes.NOT_FOUND,
+    );
+  }
+
+  // Use Promise.all to fetch all counts in parallel
+  const [conversationsResult, messagesResult, aiResponsesResult] = await Promise.all([
+    // Count total conversations for this chatbot
+    db
+      .select({ count: count() })
+      .from(conversations)
+      .where(eq(conversations.chatbotId, id)),
+
+    // Count total messages for this chatbot (through conversations)
+    db
+      .select({ count: count() })
+      .from(messages)
+      .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+      .where(eq(conversations.chatbotId, id)),
+
+    // Count total AI responses (messages where isBot = true)
+    db
+      .select({ count: count() })
+      .from(messages)
+      .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+      .where(and(eq(conversations.chatbotId, id), eq(messages.isBot, true)),
+      ),
+  ]);
+
+  return c.json(
+    {
+      ...chatbot,
+      totalConversations: conversationsResult[0]?.count ?? 0,
+      totalMessages: messagesResult[0]?.count ?? 0,
+      totalAiResponses: aiResponsesResult[0]?.count ?? 0,
+    },
+    HttpStatusCodes.OK,
+  );
 };
 
 export const create: AppRouteHandler<CreateChatbot> = async (c) => {
