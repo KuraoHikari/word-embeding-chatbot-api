@@ -69,6 +69,30 @@ export const getOne: AppRouteHandler<GetChatbot> = async (c) => {
     );
   }
 
+  // find chatbotId for test@example.com
+  const testContact = await db.query.contacts.findFirst({
+    where(fields, operators) {
+      return operators.and(
+        operators.eq(fields.userId, userId),
+        operators.eq(fields.email, "test@example.com"),
+      );
+    },
+  });
+
+  // find conversation for test contact and this chatbot
+  let testConversation = null;
+  if (testContact) {
+    testConversation = await db.query.conversations.findFirst({
+      where(fields, operators) {
+        return operators.and(
+          operators.eq(fields.chatbotId, id),
+          operators.eq(fields.contactId, testContact.id),
+          operators.eq(fields.userId, userId),
+        );
+      },
+    });
+  }
+
   // Use Promise.all to fetch all counts in parallel
   const [conversationsResult, messagesResult, aiResponsesResult] = await Promise.all([
     // Count total conversations for this chatbot
@@ -99,6 +123,7 @@ export const getOne: AppRouteHandler<GetChatbot> = async (c) => {
       totalConversations: conversationsResult[0]?.count ?? 0,
       totalMessages: messagesResult[0]?.count ?? 0,
       totalAiResponses: aiResponsesResult[0]?.count ?? 0,
+      testConversationId: testConversation ? testConversation.id : null,
     },
     HttpStatusCodes.OK,
   );
@@ -156,13 +181,29 @@ export const create: AppRouteHandler<CreateChatbot> = async (c) => {
     aiModel: chatbots.aiModel,
   });
 
-  const testContact = await db.insert(contacts).values({
-    userId: Number(userId),
-    name: "Test User",
-    email: "test@example.com",
-  }).returning({
-    id: contacts.id,
+  let testContact;
+  // if the user already has test contact, skip creating another one
+  const existingTestContact = await db.query.contacts.findFirst({
+    where(fields, operators) {
+      return operators.and(
+        operators.eq(fields.userId, userId),
+        operators.eq(fields.email, "test@example.com"),
+      );
+    },
   });
+
+  if (!existingTestContact) {
+    testContact = await db.insert(contacts).values({
+      userId: Number(userId),
+      name: "Test User",
+      email: "test@example.com",
+    }).returning({
+      id: contacts.id,
+    });
+  }
+  else {
+    testContact = [existingTestContact];
+  }
 
   await db.insert(conversations).values({
     userId: Number(userId),
