@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "a2fb67fb-441a-4846-b64e-fd1c9f3a46d9",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "986a866d-6981-4463-9bbc-b54bbb04ba5d",
+  "prevId": "a2fb67fb-441a-4846-b64e-fd1c9f3a46d9",
   "tables": {
     "chatbots": {
       "name": "chatbots",
@@ -255,6 +255,14 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "auto_reply": {
+          "name": "auto_reply",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
         },
         "created_at": {
           "name": "created_at",

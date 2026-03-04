@@ -1,0 +1,1 @@
+ALTER TABLE `conversations` ADD `auto_reply` integer DEFAULT true NOT NULL;

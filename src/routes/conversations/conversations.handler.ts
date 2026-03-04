@@ -7,7 +7,7 @@ import type { AppRouteHandler } from "@/lib/types";
 import db from "@/db";
 import { conversations } from "@/db/schema";
 
-import type { CreateRoute, GetOneRoute, ListRoute, RemoveRoute } from "./conversations.routes";
+import type { CreateRoute, GetOneRoute, ListRoute, PatchRoute, RemoveRoute } from "./conversations.routes";
 
 export const list: AppRouteHandler<ListRoute> = async (c) => {
   const userId = c.get("userId");
@@ -23,9 +23,23 @@ export const list: AppRouteHandler<ListRoute> = async (c) => {
     where(fields, operators) {
       return operators.eq(fields.userId, userId);
     },
+    with: {
+      messages: {
+        orderBy: (messages, { desc }) => [desc(messages.createdAt)],
+        limit: 1,
+      },
+      contact: true,
+    },
   });
 
-  return c.json(conversationsList, HttpStatusCodes.OK);
+  // Transform to include lastMessage field
+  const conversationsWithLastMessage = conversationsList.map(conv => ({
+    ...conv,
+    lastMessage: conv.messages[0] || null,
+    messages: undefined, // Remove messages array from response
+  }));
+
+  return c.json(conversationsWithLastMessage, HttpStatusCodes.OK);
 };
 export const create: AppRouteHandler<CreateRoute> = async (c) => {
   const contactId = c.get("contactId");
@@ -78,6 +92,11 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
     where(fields, operators) {
       return operators.eq(fields.id, id);
     },
+    with: {
+      messages: {
+        orderBy: (messages, { asc }) => [asc(messages.createdAt)],
+      },
+    },
   });
 
   if (!conversation) {
@@ -88,6 +107,45 @@ export const getOne: AppRouteHandler<GetOneRoute> = async (c) => {
   }
 
   return c.json(conversation, HttpStatusCodes.OK);
+};
+
+export const patch: AppRouteHandler<PatchRoute> = async (c) => {
+  const userId = c.get("userId");
+
+  if (!userId) {
+    return c.json(
+      { message: HttpStatusPhrases.UNAUTHORIZED },
+      HttpStatusCodes.UNAUTHORIZED,
+    );
+  }
+
+  const { id } = c.req.valid("param");
+  const updates = c.req.valid("json");
+
+  // Check if the conversation exists and belongs to the user
+  const conversation = await db.query.conversations.findFirst({
+    where(fields, operators) {
+      return operators.and(
+        operators.eq(fields.id, id),
+        operators.eq(fields.userId, userId),
+      );
+    },
+  });
+
+  if (!conversation) {
+    return c.json(
+      { message: HttpStatusPhrases.NOT_FOUND },
+      HttpStatusCodes.NOT_FOUND,
+    );
+  }
+
+  // Update the conversation
+  const updatedConversation = await db.update(conversations)
+    .set(updates)
+    .where(eq(conversations.id, id))
+    .returning();
+
+  return c.json(updatedConversation[0], HttpStatusCodes.OK);
 };
 
 export const remove: AppRouteHandler<RemoveRoute> = async (c) => {

@@ -2011,7 +2011,7 @@ async def query_baseline_model(
                     contexts=mmr_results,
                     model=gptModel,
                     system_prompt=promptTemplate,
-                    maxToken=maxToken,
+                    max_tokens=maxToken,
                     temperature=temperature
                 )
 
@@ -2072,7 +2072,7 @@ async def query_baseline_model(
             response_data["gpt_generation"] = gpt_response
 
         # Add RAGAS metrics if available
-        if ragas_metrics and not isinstance(ragas_metrics, dict) or "error" not in ragas_metrics:
+        if ragas_metrics and (not isinstance(ragas_metrics, dict) or "error" not in ragas_metrics):
             response_data["ragas_evaluation"] = {
                 "context_relevance": ragas_metrics.context_relevance,
                 "faithfulness": ragas_metrics.faithfulness,

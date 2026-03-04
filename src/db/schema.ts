@@ -96,6 +96,7 @@ export const conversations = sqliteTable("conversations", {
   userId: integer("user_id").notNull().references(() => users.id),
   chatbotId: integer("chatbot_id").notNull().references(() => chatbots.id),
   contactId: integer("contact_id").notNull().references(() => contacts.id),
+  autoReply: integer("auto_reply", { mode: "boolean" }).notNull().default(true),
   ...timestamps,
 });
 
@@ -354,6 +355,7 @@ export const createContactSchema = createInsertSchema(
 
 export const patchContactSchema = createContactSchema.partial();
 export const selectConversationsSchema = createSelectSchema(conversations);
+
 export const insertConversationsSchema = createInsertSchema(
   conversations,
   {
@@ -368,6 +370,15 @@ export const insertConversationsSchema = createInsertSchema(
   createdAt: true,
   updatedAt: true,
 });
+
+export const patchConversationsSchema = createInsertSchema(
+  conversations,
+  {
+    autoReply: schema => schema.autoReply,
+  },
+).pick({
+  autoReply: true,
+}).partial();
 
 export const selectMessagesSchema = createSelectSchema(messages);
 export const insertMessagesSchema = createInsertSchema(
@@ -389,4 +400,14 @@ export const insertMessagesSchema = createInsertSchema(
   chatbotId: z.number().min(1).max(500),
   // add results property with union type
   results: z.custom<QueryProposedModelResponse | QueryBaselineModelResponse>().optional(),
+});
+
+export const selectConversationWithLastMessageSchema = selectConversationsSchema.extend({
+  lastMessage: selectMessagesSchema.nullable(),
+  contact: selectContactSchema,
+});
+
+// Extended conversation schema with all messages for detail view
+export const selectConversationWithMessagesSchema = selectConversationsSchema.extend({
+  messages: z.array(selectMessagesSchema),
 });

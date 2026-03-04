@@ -4,7 +4,7 @@ import * as HttpStatusPhrases from "stoker/http-status-phrases";
 import { jsonContent, jsonContentRequired } from "stoker/openapi/helpers";
 import { IdParamsSchema } from "stoker/openapi/schemas";
 
-import { insertConversationsSchema, selectConversationsSchema } from "@/db/schema";
+import { insertConversationsSchema, patchConversationsSchema, selectConversationsSchema, selectConversationWithLastMessageSchema, selectConversationWithMessagesSchema } from "@/db/schema";
 
 const tags = ["Conversations"];
 
@@ -19,8 +19,8 @@ export const list = createRoute({
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      z.array(selectConversationsSchema),
-      "List of conversations",
+      z.array(selectConversationWithLastMessageSchema),
+      "List of conversations with last message",
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       z.object({ message: z.string() }),
@@ -67,8 +67,8 @@ export const getOne = createRoute({
   },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(
-      selectConversationsSchema,
-      "Conversation found",
+      selectConversationWithMessagesSchema,
+      "Conversation found with all messages",
     ),
     [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
       z.object({ message: z.string() }),
@@ -79,6 +79,33 @@ export const getOne = createRoute({
       "Conversation not found",
     ),
 
+  },
+});
+
+export const patch = createRoute({
+  path: "/conversations/{id}",
+  method: "patch",
+  tags,
+  request: {
+    headers: z.object({
+      authorization: z.string().optional(),
+    }),
+    params: IdParamsSchema,
+    body: jsonContentRequired(patchConversationsSchema, "The conversation fields to update"),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      selectConversationsSchema,
+      "Conversation updated",
+    ),
+    [HttpStatusCodes.UNAUTHORIZED]: jsonContent(
+      z.object({ message: z.string() }),
+      "Unauthorized",
+    ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      z.object({ message: z.string() }),
+      "Conversation not found",
+    ),
   },
 });
 
@@ -115,4 +142,5 @@ export const remove = createRoute({
 export type ListRoute = typeof list;
 export type CreateRoute = typeof create;
 export type GetOneRoute = typeof getOne;
+export type PatchRoute = typeof patch;
 export type RemoveRoute = typeof remove;
