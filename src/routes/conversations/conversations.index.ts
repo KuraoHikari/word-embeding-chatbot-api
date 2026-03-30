@@ -9,6 +9,7 @@ const router = createRouter(); // Apply auth middleware to all routes
 router.use(routes.list.path, authMiddleware);
 router.use(routes.patch.path, authMiddleware);
 router.use(routes.remove.path, authMiddleware);
+router.use("/conversations/:id", authMiddleware);
 
 router.use(routes.create.path, authMiddlewarePublicContact);
 

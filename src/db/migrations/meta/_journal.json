@@ -15,6 +15,13 @@
       "when": 1772590281125,
       "tag": "0001_curly_snowbird",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1773198827896,
+      "tag": "0002_yellow_king_cobra",
+      "breakpoints": true
     }
   ]
 }
