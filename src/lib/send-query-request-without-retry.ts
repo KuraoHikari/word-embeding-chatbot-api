@@ -18,6 +18,7 @@ interface QueryParams {
   promptTemplate?: string | null;
   maxToken?: number; // default: 500, min: 100, max: 2000
   temperature?: number; // default: 0.7, min: 0.0, max: 1.0
+  ground_truth?: string; // optional ground truth answer for proposed model
 }
 
 export async function sendQueryRequestWithoutRetry(
@@ -43,6 +44,8 @@ export async function sendQueryRequestWithoutRetry(
       { name: "promptTemplate", value: params.promptTemplate || "" },
       { name: "maxToken", value: params.maxToken?.toString() || "500" },
       { name: "temperature", value: params.temperature?.toString() || "0.3" },
+      { name: "ground_truth", value: params.ground_truth || "" },
+      { name: "useCrossEncoder", value: params.isProposedModel ? "true" : "false" },
     ];
 
     fields.forEach(field => nodeFormData.append(field.name, field.value));

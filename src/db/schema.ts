@@ -23,320 +23,320 @@ AI assistant will not invent anything that is not drawn directly from the contex
 `;
 
 const id = {
- id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
+  id: integer("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
 };
 
 const timestamps = {
- createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
- updatedAt: integer("updated_at", { mode: "timestamp" })
-  .$defaultFn(() => new Date())
-  .$onUpdate(() => new Date()),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .$defaultFn(() => new Date())
+    .$onUpdate(() => new Date()),
 };
 
 export const tasks = sqliteTable("tasks", {
- ...id,
- name: text("name").notNull(),
- done: integer("done", { mode: "boolean" }).notNull().default(false),
- ...timestamps,
+  ...id,
+  name: text("name").notNull(),
+  done: integer("done", { mode: "boolean" }).notNull().default(false),
+  ...timestamps,
 });
 
 // custom lower function
 export function lower(email: AnySQLiteColumn): SQL {
- return sql`lower(${email})`;
+  return sql`lower(${email})`;
 }
 
 export const users = sqliteTable(
- "users",
- {
-  ...id,
-  name: text("name").notNull(),
-  password: text("password").notNull(),
-  email: text("email").notNull(),
-  ...timestamps,
- },
- (table) => ({
-  emailUniqueIndex: uniqueIndex("emailUniqueIndex").on(lower(table.email)),
- }),
+  "users",
+  {
+    ...id,
+    name: text("name").notNull(),
+    password: text("password").notNull(),
+    email: text("email").notNull(),
+    ...timestamps,
+  },
+  table => ({
+    emailUniqueIndex: uniqueIndex("emailUniqueIndex").on(lower(table.email)),
+  }),
 );
 
 // Chatbots Table
 export const chatbots = sqliteTable("chatbots", {
- ...id,
- title: text("title").notNull(),
- description: text("description"),
- isPublic: integer("is_public", { mode: "boolean" }).notNull().default(false),
- welcomeMessage: text("welcome_message").notNull(),
- suggestionMessage: text("suggestion_message").notNull(),
- systemPrompt: text("system_prompt").notNull().default(defaultSystemPrompt),
- aiModel: text("ai_model").notNull().default("gpt-3.5-turbo"),
- isProposedModel: integer("is_proposed_model", { mode: "boolean" }).notNull().default(true),
- embeddingModel: text("embedding_model").notNull().default("fastext"),
- temperature: integer("temperature").notNull().default(30),
- maxTokens: integer("max_tokens").notNull().default(500),
- pdfTitle: text("pdf_title").notNull(),
- pdfLink: text("pdf_link").notNull(),
- userId: integer("user_id")
-  .notNull()
-  .references(() => users.id),
- ...timestamps,
+  ...id,
+  title: text("title").notNull(),
+  description: text("description"),
+  isPublic: integer("is_public", { mode: "boolean" }).notNull().default(false),
+  welcomeMessage: text("welcome_message").notNull(),
+  suggestionMessage: text("suggestion_message").notNull(),
+  systemPrompt: text("system_prompt").notNull().default(defaultSystemPrompt),
+  aiModel: text("ai_model").notNull().default("gpt-3.5-turbo"),
+  isProposedModel: integer("is_proposed_model", { mode: "boolean" }).notNull().default(true),
+  embeddingModel: text("embedding_model").notNull().default("fasttext"),
+  temperature: integer("temperature").notNull().default(30),
+  maxTokens: integer("max_tokens").notNull().default(500),
+  pdfTitle: text("pdf_title").notNull(),
+  pdfLink: text("pdf_link").notNull(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
+  ...timestamps,
 });
 
 // Contacts Table
 export const contacts = sqliteTable("contacts", {
- ...id,
- name: text("name").notNull(),
- email: text("email").notNull(),
- phone: text("phone"),
- userId: integer("user_id")
-  .notNull()
-  .references(() => users.id),
- ...timestamps,
+  ...id,
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
+  ...timestamps,
 });
 
 // Conversations Table
 export const conversations = sqliteTable("conversations", {
- ...id,
- userId: integer("user_id")
-  .notNull()
-  .references(() => users.id),
- chatbotId: integer("chatbot_id")
-  .notNull()
-  .references(() => chatbots.id),
- contactId: integer("contact_id")
-  .notNull()
-  .references(() => contacts.id),
- autoReply: integer("auto_reply", { mode: "boolean" }).notNull().default(true),
- ...timestamps,
+  ...id,
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
+  chatbotId: integer("chatbot_id")
+    .notNull()
+    .references(() => chatbots.id),
+  contactId: integer("contact_id")
+    .notNull()
+    .references(() => contacts.id),
+  autoReply: integer("auto_reply", { mode: "boolean" }).notNull().default(true),
+  ...timestamps,
 });
 
 // Messages Table
 export const messages = sqliteTable("messages", {
- ...id,
- text: text("text").notNull(),
- conversationId: integer("conversation_id")
-  .notNull()
-  .references(() => conversations.id),
- userId: integer("user_id")
-  .notNull()
-  .references(() => users.id),
- isBot: integer("is_bot", { mode: "boolean" }).notNull().default(false),
- senderRole: text("sender_role", { enum: ["admin", "bot", "contact"] })
-  .notNull()
-  .default("contact"),
- ...timestamps,
+  ...id,
+  text: text("text").notNull(),
+  conversationId: integer("conversation_id")
+    .notNull()
+    .references(() => conversations.id),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
+  isBot: integer("is_bot", { mode: "boolean" }).notNull().default(false),
+  senderRole: text("sender_role", { enum: ["admin", "bot", "contact"] })
+    .notNull()
+    .default("contact"),
+  ...timestamps,
 });
 
 // Model Responses Table - for storing both proposed and baseline model data
 export const modelResponses = sqliteTable("model_responses", {
- ...id,
- messageId: integer("message_id")
-  .notNull()
-  .references(() => messages.id)
-  .unique(), // Ensures a one-to-one relationship
- modelType: text("model_type", { enum: ["proposed", "baseline"] }).notNull(),
+  ...id,
+  messageId: integer("message_id")
+    .notNull()
+    .references(() => messages.id)
+    .unique(), // Ensures a one-to-one relationship
+  modelType: text("model_type", { enum: ["proposed", "baseline"] }).notNull(),
 
- // Common fields for both model types
- query: text("query").notNull(),
- processingTime: integer("processing_time").notNull(),
- results: text("results", { mode: "json" }).notNull(),
- metadata: text("metadata", { mode: "json" }).notNull(),
+  // Common fields for both model types
+  query: text("query").notNull(),
+  processingTime: integer("processing_time").notNull(),
+  results: text("results", { mode: "json" }).notNull(),
+  metadata: text("metadata", { mode: "json" }).notNull(),
 
- // Fields specific to Proposed Model (nullable for baseline)
- complexityAnalysis: text("complexity_analysis", { mode: "json" }),
- searchPipeline: text("search_pipeline", { mode: "json" }),
+  // Fields specific to Proposed Model (nullable for baseline)
+  complexityAnalysis: text("complexity_analysis", { mode: "json" }),
+  searchPipeline: text("search_pipeline", { mode: "json" }),
 
- // Fields specific to Baseline Model (nullable for proposed)
- modelApproach: text("model_approach"),
- pipelineSteps: text("pipeline_steps", { mode: "json" }),
+  // Fields specific to Baseline Model (nullable for proposed)
+  modelApproach: text("model_approach"),
+  pipelineSteps: text("pipeline_steps", { mode: "json" }),
 
- // Optional fields that can exist in both models
- gptGeneration: text("gpt_generation", { mode: "json" }),
- ragasEvaluation: text("ragas_evaluation", { mode: "json" }),
- message: text("message"),
+  // Optional fields that can exist in both models
+  gptGeneration: text("gpt_generation", { mode: "json" }),
+  ragasEvaluation: text("ragas_evaluation", { mode: "json" }),
+  message: text("message"),
 
- userId: integer("user_id")
-  .notNull()
-  .references(() => users.id),
- chatbotId: integer("chatbot_id")
-  .notNull()
-  .references(() => chatbots.id),
- ...timestamps,
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
+  chatbotId: integer("chatbot_id")
+    .notNull()
+    .references(() => chatbots.id),
+  ...timestamps,
 });
 
 export const modelResponsesRelations = relations(modelResponses, ({ one }) => ({
- message: one(messages, {
-  fields: [modelResponses.messageId],
-  references: [messages.id],
- }),
- chatbot: one(chatbots, {
-  fields: [modelResponses.chatbotId],
-  references: [chatbots.id],
- }),
- user: one(users, {
-  fields: [modelResponses.userId],
-  references: [users.id],
- }),
+  message: one(messages, {
+    fields: [modelResponses.messageId],
+    references: [messages.id],
+  }),
+  chatbot: one(chatbots, {
+    fields: [modelResponses.chatbotId],
+    references: [chatbots.id],
+  }),
+  user: one(users, {
+    fields: [modelResponses.userId],
+    references: [users.id],
+  }),
 }));
 
 export const queryProposedModelResponses = sqliteTable("queryProposedModelResponses", {
- ...id,
- messageId: integer("message_id")
-  .notNull()
-  .references(() => messages.id),
- ...timestamps,
+  ...id,
+  messageId: integer("message_id")
+    .notNull()
+    .references(() => messages.id),
+  ...timestamps,
 });
 
 export const messagesRelations = relations(messages, ({ one }) => ({
- user: one(users, {
-  fields: [messages.userId],
-  references: [users.id],
- }),
- conversation: one(conversations, {
-  fields: [messages.conversationId],
-  references: [conversations.id],
- }),
- // New relation to model response
- modelResponse: one(modelResponses, {
-  fields: [messages.id],
-  references: [modelResponses.messageId],
- }),
+  user: one(users, {
+    fields: [messages.userId],
+    references: [users.id],
+  }),
+  conversation: one(conversations, {
+    fields: [messages.conversationId],
+    references: [conversations.id],
+  }),
+  // New relation to model response
+  modelResponse: one(modelResponses, {
+    fields: [messages.id],
+    references: [modelResponses.messageId],
+  }),
 }));
 
 export const usersRelations = relations(users, ({ many }) => ({
- chatbots: many(chatbots),
- contacts: many(contacts),
- conversations: many(conversations),
- messages: many(messages),
- modelResponses: many(modelResponses),
+  chatbots: many(chatbots),
+  contacts: many(contacts),
+  conversations: many(conversations),
+  messages: many(messages),
+  modelResponses: many(modelResponses),
 }));
 
 export const chatbotsRelations = relations(chatbots, ({ one, many }) => ({
- user: one(users, {
-  fields: [chatbots.userId],
-  references: [users.id],
- }),
- conversations: many(conversations),
- modelResponses: many(modelResponses),
+  user: one(users, {
+    fields: [chatbots.userId],
+    references: [users.id],
+  }),
+  conversations: many(conversations),
+  modelResponses: many(modelResponses),
 }));
 
 export const contactsRelations = relations(contacts, ({ one, many }) => ({
- user: one(users, {
-  fields: [contacts.userId],
-  references: [users.id],
- }),
- conversations: many(conversations),
+  user: one(users, {
+    fields: [contacts.userId],
+    references: [users.id],
+  }),
+  conversations: many(conversations),
 }));
 
 export const conversationsRelations = relations(conversations, ({ one, many }) => ({
- user: one(users, {
-  fields: [conversations.userId],
-  references: [users.id],
- }),
- chatbot: one(chatbots, {
-  fields: [conversations.chatbotId],
-  references: [chatbots.id],
- }),
- contact: one(contacts, {
-  fields: [conversations.contactId],
-  references: [contacts.id],
- }),
- messages: many(messages),
+  user: one(users, {
+    fields: [conversations.userId],
+    references: [users.id],
+  }),
+  chatbot: one(chatbots, {
+    fields: [conversations.chatbotId],
+    references: [chatbots.id],
+  }),
+  contact: one(contacts, {
+    fields: [conversations.contactId],
+    references: [contacts.id],
+  }),
+  messages: many(messages),
 }));
 
 export const selectTasksSchema = createSelectSchema(tasks);
 
 export const insertTasksSchema = createInsertSchema(tasks, {
- name: (schema) => schema.name.min(1).max(500),
+  name: schema => schema.name.min(1).max(500),
 })
- .required({
-  done: true,
- })
- .omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
- });
+  .required({
+    done: true,
+  })
+  .omit({
+    id: true,
+    createdAt: true,
+    updatedAt: true,
+  });
 
 export const registerUserSchema = createInsertSchema(users, {
- name: (schema) => schema.name.min(1).max(500),
- email: (schema) => schema.email.email().min(1).max(500),
- password: (schema) => schema.password.min(8).max(500),
+  name: schema => schema.name.min(1).max(500),
+  email: schema => schema.email.email().min(1).max(500),
+  password: schema => schema.password.min(8).max(500),
 })
- .required({
-  email: true,
-  password: true,
-  name: true,
- })
- .omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
- });
+  .required({
+    email: true,
+    password: true,
+    name: true,
+  })
+  .omit({
+    id: true,
+    createdAt: true,
+    updatedAt: true,
+  });
 
 export const selectChatbotsSchema = createSelectSchema(chatbots);
 
 export const detailChatbotSchema = selectChatbotsSchema.extend({
- totalMessages: z.number().min(0).optional().describe("Total messages sent in the chatbot"),
- totalConversations: z.number().min(0).optional().describe("Total conversations started with the chatbot"),
- totalAiResponses: z.number().min(0).optional().describe("Total AI responses generated by the chatbot"),
- testConversationId: z.number().int().nullable().optional().describe("Test conversation ID for the chatbot"),
+  totalMessages: z.number().min(0).optional().describe("Total messages sent in the chatbot"),
+  totalConversations: z.number().min(0).optional().describe("Total conversations started with the chatbot"),
+  totalAiResponses: z.number().min(0).optional().describe("Total AI responses generated by the chatbot"),
+  testConversationId: z.number().int().nullable().optional().describe("Test conversation ID for the chatbot"),
 });
 
 export const insertChatbotsSchema = createInsertSchema(chatbots, {
- title: (schema) => schema.title.min(1).max(100),
- description: (schema) => schema.description.min(1).max(500),
- isPublic: (schema) => schema.isPublic,
- welcomeMessage: (schema) => schema.welcomeMessage.min(1).max(1000),
- suggestionMessage: (schema) => schema.suggestionMessage.min(1).max(1000),
- systemPrompt: (schema) => schema.systemPrompt.min(1).max(2000),
- aiModel: (schema) => schema.aiModel.pipe(z.enum(["gpt-3.5-turbo", "gpt-4", "gpt-4-32k", "gpt-4o"])),
- isProposedModel: (schema) => schema.isProposedModel,
- embeddingModel: (schema) => schema.embeddingModel.pipe(z.enum(["word2vec", "fasttext", "pinecone"])),
- temperature: (schema) => schema.temperature.min(0).max(100),
- maxTokens: (schema) => schema.maxTokens.min(100).max(2000),
- pdfTitle: (schema) => schema.pdfTitle.min(1).max(500),
- pdfLink: (schema) => schema.pdfLink.min(1).max(500),
+  title: schema => schema.title.min(1).max(100),
+  description: schema => schema.description.min(1).max(500),
+  isPublic: schema => schema.isPublic,
+  welcomeMessage: schema => schema.welcomeMessage.min(1).max(1000),
+  suggestionMessage: schema => schema.suggestionMessage.min(1).max(1000),
+  systemPrompt: schema => schema.systemPrompt.min(1).max(2000),
+  aiModel: schema => schema.aiModel.pipe(z.enum(["gpt-3.5-turbo", "gpt-4", "gpt-4-32k", "gpt-4o"])),
+  isProposedModel: schema => schema.isProposedModel,
+  embeddingModel: schema => schema.embeddingModel.pipe(z.enum(["word2vec", "fasttext", "pinecone"])),
+  temperature: schema => schema.temperature.min(0).max(100),
+  maxTokens: schema => schema.maxTokens.min(100).max(2000),
+  pdfTitle: schema => schema.pdfTitle.min(1).max(500),
+  pdfLink: schema => schema.pdfLink.min(1).max(500),
 })
- .required({
-  title: true,
-  description: true,
-  isPublic: true,
-  welcomeMessage: true,
-  suggestionMessage: true,
-  aiModel: true,
-  isProposedModel: true,
-  embeddingModel: true,
-  temperature: true,
-  maxTokens: true,
-  pdfTitle: true,
-  pdfLink: true,
- })
- .omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-  userId: true,
- });
+  .required({
+    title: true,
+    description: true,
+    isPublic: true,
+    welcomeMessage: true,
+    suggestionMessage: true,
+    aiModel: true,
+    isProposedModel: true,
+    embeddingModel: true,
+    temperature: true,
+    maxTokens: true,
+    pdfTitle: true,
+    pdfLink: true,
+  })
+  .omit({
+    id: true,
+    createdAt: true,
+    updatedAt: true,
+    userId: true,
+  });
 
 export const patchChatbotsSchema = insertChatbotsSchema
- .omit({
-  pdfTitle: true,
-  pdfLink: true,
- })
- .partial();
+  .omit({
+    pdfTitle: true,
+    pdfLink: true,
+  })
+  .partial();
 
 export const patchChatbotsFormSchema = patchChatbotsSchema.extend({
- pdf: z.instanceof(File).or(z.instanceof(Blob)).optional().describe("PDF file upload (optional - only if retraining)").openapi({ format: "binary" }),
- isPublic: z.preprocess((val) => (val === "true" ? true : val === "false" ? false : val === undefined ? undefined : val), z.boolean().optional()),
- isProposedModel: z.preprocess((val) => (val === "true" ? true : val === "false" ? false : val === undefined ? undefined : val), z.boolean().optional()),
- temperature: z.preprocess((val) => (typeof val === "string" && val !== "" ? Number.parseFloat(val) : val === "" ? undefined : val), z.number().min(0.0).max(1.0).optional()),
- maxTokens: z.preprocess((val) => (typeof val === "string" && val !== "" ? Number.parseInt(val, 10) : val === "" ? undefined : val), z.number().int().min(100).max(2000).optional()),
+  pdf: z.instanceof(File).or(z.instanceof(Blob)).optional().describe("PDF file upload (optional - only if retraining)").openapi({ format: "binary" }),
+  isPublic: z.preprocess(val => (val === "true" ? true : val === "false" ? false : val === undefined ? undefined : val), z.boolean().optional()),
+  isProposedModel: z.preprocess(val => (val === "true" ? true : val === "false" ? false : val === undefined ? undefined : val), z.boolean().optional()),
+  temperature: z.preprocess(val => (typeof val === "string" && val !== "" ? Number.parseFloat(val) : val === "" ? undefined : val), z.number().min(0.0).max(1.0).optional()),
+  maxTokens: z.preprocess(val => (typeof val === "string" && val !== "" ? Number.parseInt(val, 10) : val === "" ? undefined : val), z.number().int().min(100).max(2000).optional()),
 });
 
 export const selectContactsSchema = createSelectSchema(contacts);
 
 export const loginUserSchema = registerUserSchema.omit({
- name: true,
+  name: true,
 });
 
 export const patchTasksSchema = insertTasksSchema.partial();
@@ -344,77 +344,78 @@ export const patchTasksSchema = insertTasksSchema.partial();
 export const selectContactSchema = createSelectSchema(contacts);
 
 export const createContactSchema = createInsertSchema(contacts, {
- name: (schema) => schema.name.min(1).max(500),
- email: (schema) => schema.email.email().min(1).max(500),
- phone: (schema) => schema.phone.min(1).max(500),
+  name: schema => schema.name.min(1).max(500),
+  email: schema => schema.email.email().min(1).max(500),
+  phone: schema => schema.phone.min(1).max(500),
 })
- .required({
-  name: true,
-  email: true,
- })
- .omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-  userId: true,
- })
- .partial({
-  phone: true,
- });
+  .required({
+    name: true,
+    email: true,
+  })
+  .omit({
+    id: true,
+    createdAt: true,
+    updatedAt: true,
+    userId: true,
+  })
+  .partial({
+    phone: true,
+  });
 
 export const patchContactSchema = createContactSchema.partial();
 export const selectConversationsSchema = createSelectSchema(conversations);
 
 export const insertConversationsSchema = createInsertSchema(conversations, {
- chatbotId: (schema) => schema.chatbotId.min(1).max(500),
+  chatbotId: schema => schema.chatbotId.min(1).max(500),
 })
- .required({
-  chatbotId: true,
- })
- .omit({
-  id: true,
-  contactId: true,
-  userId: true,
-  createdAt: true,
-  updatedAt: true,
- });
+  .required({
+    chatbotId: true,
+  })
+  .omit({
+    id: true,
+    contactId: true,
+    userId: true,
+    createdAt: true,
+    updatedAt: true,
+  });
 
 export const patchConversationsSchema = createInsertSchema(conversations, {
- autoReply: (schema) => schema.autoReply,
+  autoReply: schema => schema.autoReply,
 })
- .pick({
-  autoReply: true,
- })
- .partial();
+  .pick({
+    autoReply: true,
+  })
+  .partial();
 
 export const selectMessagesSchema = createSelectSchema(messages);
 export const insertMessagesSchema = createInsertSchema(messages, {
- text: (schema) => schema.text.min(1).max(500),
- conversationId: (schema) => schema.conversationId.min(1).max(500),
+  text: schema => schema.text.min(1).max(500),
+  conversationId: schema => schema.conversationId.min(1).max(500),
 })
- .required({
-  text: true,
- })
- .omit({
-  id: true,
-  userId: true,
-  createdAt: true,
-  updatedAt: true,
-  isBot: true,
- })
- .extend({
+  .required({
+    text: true,
+  })
+  .omit({
+    id: true,
+    userId: true,
+    createdAt: true,
+    updatedAt: true,
+    isBot: true,
+  })
+  .extend({
   // extend chatbotId required
-  chatbotId: z.number().min(1).max(500),
-  // add results property with union type
-  results: z.custom<QueryProposedModelResponse | QueryBaselineModelResponse>().optional(),
- });
+    chatbotId: z.number().min(1).max(500),
+    ground_truth: z.string().min(1).max(1000).optional(),
+    // add results property with union type
+    results: z.custom<QueryProposedModelResponse | QueryBaselineModelResponse>().optional(),
+  });
 
 export const selectConversationWithLastMessageSchema = selectConversationsSchema.extend({
- lastMessage: selectMessagesSchema.nullable(),
- contact: selectContactSchema,
+  lastMessage: selectMessagesSchema.nullable(),
+  contact: selectContactSchema,
 });
 
 // Extended conversation schema with all messages for detail view
 export const selectConversationWithMessagesSchema = selectConversationsSchema.extend({
- messages: z.array(selectMessagesSchema),
+  messages: z.array(selectMessagesSchema),
 });

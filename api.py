@@ -14,6 +14,7 @@ from nltk.corpus import stopwords
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 from nltk.tokenize import RegexpTokenizer
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.text import TfidfVectorizer
 from langchain_community.document_loaders import PyMuPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import uvicorn
@@ -94,9 +95,21 @@ class MMRResult:
     doc_index: int
 
 @dataclass
+class CrossEncoderResult:
+    """Hasil setelah Cross-Encoder Re-ranking"""
+    text: str
+    cross_encoder_score: float
+    mmr_score: float
+    final_score: float
+    original_rank: int
+    doc_index: int
+
+@dataclass
 class RAGASMetrics:
-    """Metrik evaluasi RAGAS"""
+    """Metrik evaluasi RAGAS (5 metrik lengkap)"""
     context_relevance: float
+    context_precision: float
+    context_recall: float
     faithfulness: float
     answer_relevance: float
     overall_score: float
@@ -402,6 +415,97 @@ def mmr_reranking(
     return selected
 
 
+def cross_encoder_reranking(
+    query: str,
+    mmr_results: List[MMRResult],
+    alpha: float = 0.6,
+    top_k: int = 5
+) -> List[CrossEncoderResult]:
+    """
+    Cross-Encoder Re-ranking menggunakan TF-IDF similarity sebagai proxy skor
+    relevansi query-dokumen secara pair-wise.
+
+    Pendekatan:
+    - Bi-Encoder (MMR) menghasilkan kandidat awal secara efisien.
+    - Cross-Encoder menghitung skor relevansi pasangan (query, dokumen) satu
+      per satu menggunakan TF-IDF cosine similarity, yang merepresentasikan
+      interaksi leksikal mendalam antara query dan setiap dokumen kandidat.
+    - Final score = alpha * cross_encoder_score + (1 - alpha) * mmr_score
+
+    Parameter:
+    - alpha: bobot Cross-Encoder vs MMR (default 0.6 artinya 60% Cross-Encoder)
+    - top_k: jumlah hasil akhir yang dikembalikan
+    """
+    if not mmr_results:
+        return []
+
+    # Siapkan korpus: query + semua dokumen kandidat
+    candidate_texts = [result.text for result in mmr_results]
+    corpus = [query] + candidate_texts
+
+    try:
+        # Bangun TF-IDF matrix dari (query + dokumen kandidat)
+        vectorizer = TfidfVectorizer(
+            analyzer='word',
+            ngram_range=(1, 2),       # Unigram + bigram untuk konteks lebih kaya
+            min_df=1,
+            sublinear_tf=True,        # Log-normalisasi TF
+            strip_accents='unicode',
+            token_pattern=r'(?u)\b\w+\b'
+        )
+        tfidf_matrix = vectorizer.fit_transform(corpus)
+    except Exception as e:
+        logger.error(f"TF-IDF vectorization error in Cross-Encoder: {str(e)}")
+        # Fallback: kembalikan MMR results dalam format CrossEncoderResult
+        return [
+            CrossEncoderResult(
+                text=r.text,
+                cross_encoder_score=0.0,
+                mmr_score=r.final_score,
+                final_score=r.final_score,
+                original_rank=i,
+                doc_index=r.doc_index
+            )
+            for i, r in enumerate(mmr_results[:top_k])
+        ]
+
+    # Vektor query adalah baris pertama (indeks 0)
+    query_vector = tfidf_matrix[0]
+
+    # Normalisasi MMR scores ke [0, 1] untuk kombinasi yang adil
+    mmr_scores = [r.final_score for r in mmr_results]
+    max_mmr = max(mmr_scores) if max(mmr_scores) > 0 else 1.0
+    min_mmr = min(mmr_scores)
+    mmr_range = max_mmr - min_mmr if (max_mmr - min_mmr) > 0 else 1.0
+
+    cross_encoder_results = []
+    for i, (candidate, mmr_result) in enumerate(zip(candidate_texts, mmr_results)):
+        # Vektor dokumen ke-i adalah baris i+1 (karena baris 0 = query)
+        doc_vector = tfidf_matrix[i + 1]
+
+        # Hitung Cross-Encoder score: cosine similarity TF-IDF pair-wise
+        ce_score = float(cosine_similarity(query_vector, doc_vector)[0][0])
+
+        # Normalisasi MMR score ke [0, 1]
+        norm_mmr = (mmr_result.final_score - min_mmr) / mmr_range
+
+        # Gabungkan: final_score = alpha * CE_score + (1-alpha) * norm_MMR_score
+        final_score = alpha * ce_score + (1 - alpha) * norm_mmr
+
+        cross_encoder_results.append(CrossEncoderResult(
+            text=candidate,
+            cross_encoder_score=ce_score,
+            mmr_score=mmr_result.final_score,
+            final_score=final_score,
+            original_rank=i,
+            doc_index=mmr_result.doc_index
+        ))
+
+    # Sort berdasarkan final_score (tertinggi ke terendah) dan ambil top_k
+    cross_encoder_results.sort(key=lambda x: x.final_score, reverse=True)
+    return cross_encoder_results[:top_k]
+
+
 def calculate_embedding(tokens: List[str], model) -> Optional[np.ndarray]:
     """Hitung embedding rata-rata untuk tokens"""
     if not tokens:
@@ -479,75 +583,149 @@ Berdasarkan konteks di atas, berikan jawaban yang jelas dan langsung dalam bahas
         raise HTTPException(500, f"Error generating answer: {str(e)}")
 
 def calculate_ragas_metrics(
-    query: str, 
-    contexts: List[str], 
-    answer: str
+    query: str,
+    contexts: List[str],
+    answer: str,
+    ground_truth: Optional[str] = None
 ) -> RAGASMetrics:
-    """Implementasi sederhana metrik RAGAS"""
-    
+    """
+    Implementasi 5 metrik RAGAS:
+      - context_relevance   : proporsi konteks yang relevan terhadap query
+      - context_precision   : precision @ k — seberapa banyak konteks yang diambil benar-benar relevan
+      - context_recall      : recall @ k — seberapa banyak informasi ground-truth tercakup dalam konteks
+      - faithfulness        : seberapa besar jawaban bersumber dari konteks (anti-halusinasi)
+      - answer_relevance    : seberapa relevan jawaban terhadap query
+
+    Parameter ground_truth opsional: jika tidak disediakan, query digunakan sebagai
+    proxy ground-truth untuk menghitung context_recall.
+    """
+
+    # ------------------------------------------------------------------ #
+    # 1. Context Relevance                                                 #
+    # Rata-rata proporsi term query yang ditemukan dalam setiap konteks    #
+    # ------------------------------------------------------------------ #
     def context_relevance(query: str, contexts: List[str]) -> float:
-        """Relevansi konteks terhadap query"""
         if not contexts:
             return 0.0
-        
         query_terms = set(preprocess_text(query))
         if not query_terms:
             return 0.0
-        
         relevance_scores = []
         for context in contexts:
             context_terms = set(preprocess_text(context))
             if context_terms:
-                intersection = len(query_terms.intersection(context_terms))
-                relevance = intersection / len(query_terms)
+                relevance = len(query_terms & context_terms) / len(query_terms)
                 relevance_scores.append(relevance)
-        
         return sum(relevance_scores) / len(relevance_scores) if relevance_scores else 0.0
-    
+
+    # ------------------------------------------------------------------ #
+    # 2. Context Precision                                                 #
+    # Precision@k: proporsi konteks yang relevan di antara semua konteks   #
+    # yang diambil. Konteks dianggap "relevan" jika memiliki overlap >= 0.1 #
+    # dengan query terms.                                                  #
+    # ------------------------------------------------------------------ #
+    def context_precision(query: str, contexts: List[str],
+                          relevance_threshold: float = 0.1) -> float:
+        if not contexts:
+            return 0.0
+        query_terms = set(preprocess_text(query))
+        if not query_terms:
+            return 0.0
+
+        # Hitung relevance score tiap konteks
+        relevant_count = 0
+        precision_at_k_sum = 0.0
+        for k, context in enumerate(contexts, start=1):
+            ctx_terms = set(preprocess_text(context))
+            score = len(query_terms & ctx_terms) / len(query_terms) if ctx_terms else 0.0
+            if score >= relevance_threshold:
+                relevant_count += 1
+                # Precision@k = jumlah relevan hingga posisi k / k
+                precision_at_k_sum += relevant_count / k
+
+        # Average Precision (AP)
+        return precision_at_k_sum / relevant_count if relevant_count > 0 else 0.0
+
+    # ------------------------------------------------------------------ #
+    # 3. Context Recall                                                    #
+    # Proporsi informasi ground-truth yang berhasil dicakup oleh konteks.  #
+    # Jika ground_truth tidak tersedia, query digunakan sebagai proxy.     #
+    # ------------------------------------------------------------------ #
+    def context_recall(contexts: List[str],
+                       ground_truth: Optional[str],
+                       query: str) -> float:
+        if not contexts:
+            return 0.0
+        # Gunakan ground_truth jika tersedia, jika tidak gunakan query sebagai proxy
+        reference_text = ground_truth if ground_truth else query
+        reference_terms = set(preprocess_text(reference_text))
+        if not reference_terms:
+            return 0.0
+
+        # Kumpulkan semua term dari seluruh konteks
+        all_context_terms: set = set()
+        for context in contexts:
+            all_context_terms.update(preprocess_text(context))
+
+        # Recall = proporsi term referensi yang ditemukan di konteks
+        covered = len(reference_terms & all_context_terms)
+        return covered / len(reference_terms)
+
+    # ------------------------------------------------------------------ #
+    # 4. Faithfulness                                                      #
+    # Proporsi term dalam jawaban yang bersumber dari konteks (anti-       #
+    # halusinasi). Nilai tinggi → jawaban sepenuhnya berbasis dokumen.     #
+    # ------------------------------------------------------------------ #
     def faithfulness(contexts: List[str], answer: str) -> float:
-        """Faithfulness answer terhadap context"""
         if not contexts or not answer:
             return 0.0
-        
         answer_terms = set(preprocess_text(answer))
         if not answer_terms:
             return 0.0
-        
-        context_terms = set()
+        context_terms: set = set()
         for context in contexts:
             context_terms.update(preprocess_text(context))
-        
         if not context_terms:
             return 0.0
-        
-        # Hitung berapa banyak terms dalam answer yang ada di context
-        supported_terms = len(answer_terms.intersection(context_terms))
-        return supported_terms / len(answer_terms)
-    
+        supported = len(answer_terms & context_terms)
+        return supported / len(answer_terms)
+
+    # ------------------------------------------------------------------ #
+    # 5. Answer Relevance                                                  #
+    # Proporsi term query yang muncul dalam jawaban.                       #
+    # ------------------------------------------------------------------ #
     def answer_relevance(query: str, answer: str) -> float:
-        """Relevansi answer terhadap query"""
         if not query or not answer:
             return 0.0
-        
         query_terms = set(preprocess_text(query))
         answer_terms = set(preprocess_text(answer))
-        
         if not query_terms or not answer_terms:
             return 0.0
-        
-        intersection = len(query_terms.intersection(answer_terms))
-        return intersection / len(query_terms)
-    
-    # Hitung semua metrik
-    ctx_relevance = context_relevance(query, contexts)
-    faith_score = faithfulness(contexts, answer)
-    ans_relevance = answer_relevance(query, answer)
-    
-    # Overall score (weighted average)
-    overall = (ctx_relevance * 0.4 + faith_score * 0.4 + ans_relevance * 0.2)
-    
+        return len(query_terms & answer_terms) / len(query_terms)
+
+    # ------------------------------------------------------------------ #
+    # Hitung semua metrik                                                  #
+    # ------------------------------------------------------------------ #
+    ctx_relevance  = context_relevance(query, contexts)
+    ctx_precision  = context_precision(query, contexts)
+    ctx_recall     = context_recall(contexts, ground_truth, query)
+    faith_score    = faithfulness(contexts, answer)
+    ans_relevance  = answer_relevance(query, answer)
+
+    # Overall score — pembobotan sesuai kontribusi masing-masing metrik:
+    # Context (precision + recall + relevance) = 45%, Faithfulness = 35%, Answer Relevance = 20%
+    overall = (
+        ctx_relevance * 0.15 +
+        ctx_precision * 0.15 +
+        ctx_recall    * 0.15 +
+        faith_score   * 0.35 +
+        ans_relevance * 0.20
+    )
+
     return RAGASMetrics(
         context_relevance=ctx_relevance,
+        context_precision=ctx_precision,
+        context_recall=ctx_recall,
         faithfulness=faith_score,
         answer_relevance=ans_relevance,
         overall_score=overall
@@ -1285,9 +1463,12 @@ async def query_proposed_model(
     topK: int = Form(default=5, ge=1, le=20),
     similarityThreshold: float = Form(default=0.2, ge=0.0, le=1.0),
     mmrLambda: float = Form(default=0.7, ge=0.0, le=1.0),
+    useCrossEncoder: bool = Form(default=True),
+    crossEncoderAlpha: float = Form(default=0.6, ge=0.0, le=1.0),
     useGPT: bool = Form(default=False),
     gptModel: str = Form(default="gpt-3.5-turbo"),
     includeRAGAS: bool = Form(default=False),
+    groundTruth: Optional[str] = Form(default=None),
     promptTemplate: Optional[str] = Form(default=None),
     maxToken: Optional[int] = Form(default=500, ge=100, le=2000),
     temperature: Optional[float] = Form(default=0.7, ge=0.0, le=1.0)
@@ -1391,9 +1572,37 @@ async def query_proposed_model(
             top_k=topK
         )
 
-        # 7. GPT Generation (optional)
+        # 7. Cross-Encoder Re-ranking (optional, default aktif)
+        cross_encoder_results = None
+        final_contexts: List = mmr_results  # default: gunakan MMR results
+        if useCrossEncoder and mmr_results:
+            try:
+                logger.info(f"Performing Cross-Encoder reranking with alpha={crossEncoderAlpha}")
+                cross_encoder_results = cross_encoder_reranking(
+                    query=query,
+                    mmr_results=mmr_results,
+                    alpha=crossEncoderAlpha,
+                    top_k=topK
+                )
+                # Gunakan Cross-Encoder results sebagai final contexts untuk GPT
+                final_contexts = [
+                    MMRResult(
+                        text=r.text,
+                        final_score=r.final_score,
+                        diversity_penalty=0.0,
+                        original_rank=r.original_rank,
+                        doc_index=r.doc_index
+                    )
+                    for r in cross_encoder_results
+                ]
+            except Exception as e:
+                logger.error(f"Cross-Encoder reranking failed: {str(e)}, falling back to MMR results")
+                cross_encoder_results = None
+                final_contexts = mmr_results
+
+        # 8. GPT Generation (optional)
         gpt_response = None
-        if useGPT and mmr_results:
+        if useGPT and final_contexts:
             try:
                 logger.info("Generating answer with GPT")
                 if not promptTemplate:
@@ -1401,7 +1610,7 @@ async def query_proposed_model(
 
                 gpt_response = await generate_answer_with_gpt(
                     query=query,
-                    contexts=mmr_results,
+                    contexts=final_contexts,
                     model=gptModel,
                     system_prompt=promptTemplate,
                     max_tokens=maxToken,
@@ -1412,54 +1621,64 @@ async def query_proposed_model(
                 logger.error(f"GPT generation failed: {str(e)}")
                 gpt_response = {"error": str(e)}
 
-        # 8. RAGAS Evaluation (optional)
+        # 9. RAGAS Evaluation (optional)
         ragas_metrics = None
         if includeRAGAS and gpt_response and "answer" in gpt_response:
             try:
-                logger.info("Calculating RAGAS metrics")
-                contexts_for_ragas = [result.text for result in mmr_results]
+                logger.info("Calculating RAGAS metrics (5 metrik lengkap)")
+                contexts_for_ragas = [result.text for result in final_contexts]
                 ragas_metrics = calculate_ragas_metrics(
                     query=query,
                     contexts=contexts_for_ragas,
-                    answer=gpt_response["answer"]
+                    answer=gpt_response["answer"],
+                    ground_truth=groundTruth
                 )
             except Exception as e:
                 logger.error(f"RAGAS calculation failed: {str(e)}")
                 ragas_metrics = {"error": str(e)}
 
-        # 9. Prepare response
+        # 10. Prepare response
         processing_time = time.time() - start_time
 
-        # Format results for response
+        # Format results: gunakan cross_encoder_results jika tersedia, else mmr_results
+        display_results = cross_encoder_results if cross_encoder_results else mmr_results
         formatted_results = []
-        for i, result in enumerate(mmr_results):
-            # Find original search result for detailed scores
+
+        for i, result in enumerate(display_results):
+            # Cari original hybrid search scores
             original_result = None
             for sr in search_results:
                 if sr.doc_index == result.doc_index:
                     original_result = sr
                     break
-            
+
             formatted_result = {
                 "rank": i + 1,
                 "text": result.text,
                 "doc_index": result.doc_index,
                 "final_score": result.final_score,
-                "diversity_penalty": result.diversity_penalty,
                 "original_rank": result.original_rank + 1
             }
-            
+
+            # Tambah skor detail Cross-Encoder jika tersedia
+            if isinstance(result, CrossEncoderResult):
+                formatted_result["reranking_scores"] = {
+                    "cross_encoder_score": result.cross_encoder_score,
+                    "mmr_score": result.mmr_score,
+                    "alpha_used": crossEncoderAlpha
+                }
+            else:
+                formatted_result["diversity_penalty"] = result.diversity_penalty
+
             if original_result:
-                formatted_result.update({
-                    "detailed_scores": {
-                        "fasttext_similarity": original_result.fasttext_similarity,
-                        "bm25_score": original_result.bm25_score,
-                        "context_score": original_result.context_score,
-                        "weighted_score": original_result.weighted_score
-                    },
-                    "context_range": original_result.context_range
-                })
-            
+                formatted_result["detailed_scores"] = {
+                    "fasttext_similarity": original_result.fasttext_similarity,
+                    "bm25_score": original_result.bm25_score,
+                    "context_score": original_result.context_score,
+                    "weighted_score": original_result.weighted_score
+                }
+                formatted_result["context_range"] = original_result.context_range
+
             formatted_results.append(formatted_result)
 
         response_data = {
@@ -1477,7 +1696,10 @@ async def query_proposed_model(
             "search_pipeline": {
                 "hybrid_search_results": len(search_results),
                 "mmr_reranked_results": len(mmr_results),
+                "cross_encoder_applied": useCrossEncoder and cross_encoder_results is not None,
+                "final_results_count": len(display_results),
                 "mmr_lambda": mmrLambda,
+                "cross_encoder_alpha": crossEncoderAlpha if useCrossEncoder else None,
                 "similarity_threshold": similarityThreshold
             },
             "results": formatted_results,
@@ -1489,6 +1711,7 @@ async def query_proposed_model(
                     "keyword_search": True,
                     "context_scoring": True,
                     "mmr_reranking": True,
+                    "cross_encoder_reranking": useCrossEncoder,
                     "gpt_generation": useGPT,
                     "ragas_evaluation": includeRAGAS
                 }
@@ -1504,9 +1727,18 @@ async def query_proposed_model(
             if isinstance(ragas_metrics, RAGASMetrics):
                 response_data["ragas_evaluation"] = {
                     "context_relevance": ragas_metrics.context_relevance,
+                    "context_precision": ragas_metrics.context_precision,
+                    "context_recall": ragas_metrics.context_recall,
                     "faithfulness": ragas_metrics.faithfulness,
                     "answer_relevance": ragas_metrics.answer_relevance,
-                    "overall_score": ragas_metrics.overall_score
+                    "overall_score": ragas_metrics.overall_score,
+                    "score_breakdown": {
+                        "context_relevance_weight": 0.15,
+                        "context_precision_weight": 0.15,
+                        "context_recall_weight": 0.15,
+                        "faithfulness_weight": 0.35,
+                        "answer_relevance_weight": 0.20
+                    }
                 }
             elif isinstance(ragas_metrics, dict):
                 response_data["ragas_evaluation"] = ragas_metrics
@@ -1514,7 +1746,7 @@ async def query_proposed_model(
                 logger.warning(f"Unexpected type for ragas_metrics: {type(ragas_metrics)}")
 
         return JSONResponse(response_data)
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -1885,6 +2117,7 @@ async def query_baseline_model(
     useGPT: bool = Form(default=False),
     gptModel: str = Form(default="gpt-3.5-turbo"),
     includeRAGAS: bool = Form(default=False),
+    groundTruth: Optional[str] = Form(default=None),
     promptTemplate: Optional[str] = Form(default=None),
     maxToken: Optional[int] = Form(default=500, ge=100, le=2000),
     temperature: Optional[float] = Form(default=0.7, ge=0.0, le=1.0)
@@ -2023,12 +2256,13 @@ async def query_baseline_model(
         ragas_metrics = None
         if includeRAGAS and gpt_response and "answer" in gpt_response:
             try:
-                logger.info("Calculating RAGAS metrics (baseline)")
+                logger.info("Calculating RAGAS metrics - 5 metrik (baseline)")
                 contexts_for_ragas = [result["text"] for result in baseline_results]
                 ragas_metrics = calculate_ragas_metrics(
                     query=query,
                     contexts=contexts_for_ragas,
-                    answer=gpt_response["answer"]
+                    answer=gpt_response["answer"],
+                    ground_truth=groundTruth
                 )
             except Exception as e:
                 logger.error(f"RAGAS calculation failed (baseline): {str(e)}")
@@ -2075,9 +2309,18 @@ async def query_baseline_model(
         if ragas_metrics and (not isinstance(ragas_metrics, dict) or "error" not in ragas_metrics):
             response_data["ragas_evaluation"] = {
                 "context_relevance": ragas_metrics.context_relevance,
+                "context_precision": ragas_metrics.context_precision,
+                "context_recall": ragas_metrics.context_recall,
                 "faithfulness": ragas_metrics.faithfulness,
                 "answer_relevance": ragas_metrics.answer_relevance,
-                "overall_score": ragas_metrics.overall_score
+                "overall_score": ragas_metrics.overall_score,
+                "score_breakdown": {
+                    "context_relevance_weight": 0.15,
+                    "context_precision_weight": 0.15,
+                    "context_recall_weight": 0.15,
+                    "faithfulness_weight": 0.35,
+                    "answer_relevance_weight": 0.20
+                }
             }
         elif ragas_metrics:
             response_data["ragas_evaluation"] = ragas_metrics
