@@ -6,7 +6,21 @@ import * as routes from "./contacts.routes";
 
 const router = createRouter(); // Apply auth middleware to all routes
 
-// router.use(routes.list.path, authMiddleware);
+router.use("/contacts", async (c, next) => {
+  if (c.req.method === "GET") {
+    return authMiddleware(c, next);
+  }
+
+  return next();
+});
+
+router.use("/contacts/:id", async (c, next) => {
+  if (c.req.method === "DELETE") {
+    return authMiddleware(c, next);
+  }
+
+  return next();
+});
 
 router.openapi(routes.list, handlers.list);
 router.openapi(routes.create, handlers.create);

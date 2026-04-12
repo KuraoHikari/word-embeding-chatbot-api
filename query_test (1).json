@@ -1,0 +1,142 @@
+[
+  {
+    "id": 1,
+    "level": "Simple",
+    "query": "Apa itu Dashboard Booking Engine?",
+    "ground_truth": "Dashboard Booking Engine adalah halaman awal yang akan ditemui oleh Property ketika berhasil Login ke Extranet Booking Engine melalui link https://omnihotelier.id/extranet/. Pada halaman ini user bisa melihat tampilan Latest Reservation, Latest Amend Request, Latest Activities Reservation, End Date Period, Visit Overtime, Visit in Realtime, Channel Type, Conversion Overview, dan Visitor Map.",
+    "topik": "Dashboard"
+  },
+  {
+    "id": 2,
+    "level": "Simple",
+    "query": "Bagaimana cara login ke Booking Engine Omni Hottilier?",
+    "ground_truth": "Untuk login ke Extranet Booking Engine, akses melalui link https://omnihotelier.id/extranet/ kemudian masukkan kredensial akun Anda.",
+    "topik": "Login / Akses"
+  },
+  {
+    "id": 3,
+    "level": "Simple",
+    "query": "Apa itu Latest Amend Request?",
+    "ground_truth": "Latest Amend Request adalah list yang akan menampilkan amend request pada bookingan Room atau Bookingan Activities yang dilakukan oleh tamu. Amend request merupakan istilah dari perubahan atau revisi terkait bookingan yang bisa dilakukan oleh tamu sebelum melewati tanggal check in, untuk meminta perubahan berupa Tanggal Check in dan Check out, atau permintaan Special kepada pihak Hotel sebelum Stay di Hotel.",
+    "topik": "Dashboard"
+  },
+  {
+    "id": 4,
+    "level": "Simple",
+    "query": "Apa itu Advertise Pop-up?",
+    "ground_truth": "Advertise pop-up adalah bentuk iklan yang muncul di atas halaman web atau aplikasi dengan tujuan menarik perhatian pengguna. Pop-up ini biasanya muncul dalam jendela terpisah yang tumpang tindih dengan konten utama situs atau aplikasi yang sedang diakses. Tujuan dari advertise pop-up adalah untuk menyoroti suatu pesan iklan, promosi, atau tawaran khusus kepada pengguna. Cara mengakses halaman ini adalah dengan: Setup > Advertise Pop up.",
+    "topik": "Advertise Pop-up"
+  },
+  {
+    "id": 5,
+    "level": "Simple",
+    "query": "Apa fungsi fitur Visitor Map pada dashboard?",
+    "ground_truth": "Visitor Map adalah fitur untuk melihat report jumlah kunjungan/visitor dari negara mana saja yang mengunjungi halaman reservasi Booking Engine, dan untuk mempermudah User dalam mengaplikasikan GEO extra discount, atau mengaktifkan fitur GEO Promotion.",
+    "topik": "Dashboard"
+  },
+  {
+    "id": 6,
+    "level": "Simple",
+    "query": "Apa saja metode pembayaran yang didukung Booking Engine?",
+    "ground_truth": "Jenis pembayaran yang dapat dibuat sesuai metode pembayaran yang dimiliki Hotel meliputi: Bank Transfer, Credit Card, Doku, Ipay88, Paypal, Midtrans, Faspay, Xendit, Red Dot Payment, Jokul, dan MC Payment.",
+    "topik": "Payment Configuration"
+  },
+  {
+    "id": 7,
+    "level": "Simple",
+    "query": "Bagaimana cara mengakses menu Room Type?",
+    "ground_truth": "Untuk mengakses room type, buka Menu Setup > Room Type > Create New.",
+    "topik": "Room Setup"
+  },
+  {
+    "id": 8,
+    "level": "Medium",
+    "query": "Bagaimana cara menambahkan tipe kamar baru di Booking Engine?",
+    "ground_truth": "Fitur Add Room Type diperuntukan untuk menambahkan tipe kamar pada property sebagai acuan dalam pembuatan promotion. Untuk mengakses room type, buka Menu Setup > Room Type > Create New. Elemen yang perlu diisi meliputi: Room Classification (klasifikasi jenis unit kamar), Room Name (nama kamar), Room Code (kode kamar), Room Size (luas kamar dalam satuan sqm), dan Bedding Preference (opsi untuk mengaktifkan pilihan jenis kasur).",
+    "topik": "Room Setup"
+  },
+  {
+    "id": 9,
+    "level": "Medium",
+    "query": "Apa perbedaan antara Complete Payment, Unpaid Payment, dan Unfinished Payment pada fitur Redirect After Booking?",
+    "ground_truth": "Terdapat 3 kondisi pada bagian Redirecting after booking: (1) Complete Payment berarti pembayaran telah berhasil dan status reservasi pengguna adalah confirm; (2) Unpaid Payment terjadi ketika user menggunakan metode pembayaran seperti bank transfer, redirect URL ditampilkan ketika proses pembayaran sudah dilakukan namun pembayaran belum mendapatkan persetujuan/dikonfirmasi oleh pihak property; (3) Unfinished Payment terjadi redirect URL jika gagal dalam proses pembayaran, mengacu pada penundaan sehingga waktu pembayaran telah habis. Masing-masing bagian diminta untuk memasukkan Link Redirect dan Time Out (jika tidak diinputkan maka akan tersetting default 5 detik).",
+    "topik": "Redirect After Booking"
+  },
+  {
+    "id": 10,
+    "level": "Medium",
+    "query": "Bagaimana cara mengatur property setting dan informasi apa saja yang bisa diubah?",
+    "ground_truth": "Untuk masuk ke property setup: Masuk ke menu Setup > Property Setting > Pilih nama property Anda. Pada property setup Anda dapat mengubah profile property seperti: Nama property, Alamat, Website, Term & Condition, Property Logo, Public email dan phone, dan lain-lain. Field yang tersedia meliputi Property Name, Address, Country, Province, City, Area, dan berbagai informasi lainnya.",
+    "topik": "Setup Property"
+  },
+  {
+    "id": 11,
+    "level": "Medium",
+    "query": "Apa saja tipe cancellation policy yang tersedia dan apa perbedaannya?",
+    "ground_truth": "Cancellation Policy adalah aturan pembatalan reservasi yang dapat dikustomisasi. Terdapat beberapa format: (1) Full Payment: tipe cancellation untuk pembayaran penuh dalam tiap reservasi; (2) Deposit: memungkinkan tamu untuk membayarkan sejumlah deposit saat melakukan reservasi, nilai deposit bisa dibedakan berdasarkan minimum malam atau presentase nilai total reservasi; (3) Credit Card Guarantee (Cr. Guarantee): tamu akan diminta memasukan credit card namun hanya sebagai jaminan saja, pembayaran dilakukan oleh tamu saat check-in; (4) Free Cancellation: memungkinkan tamu untuk melakukan reservasi tanpa melakukan pembayaran online atau jaminan credit card. Untuk mengakses: Menu Setup > Cancellation Policy.",
+    "topik": "Cancellation Policy"
+  },
+  {
+    "id": 12,
+    "level": "Medium",
+    "query": "Bagaimana cara menambahkan foto atau gambar ke galeri kamar?",
+    "ground_truth": "Untuk menambahkan gambar pada list kamar, anda bisa menambahkan pada menu gallery. Note: Anda dapat mengunggah lebih dari 1 gambar dalam sekali unggah, dengan catatan total besar gambar dibawah 2MB.",
+    "topik": "Room Photo Gallery"
+  },
+  {
+    "id": 13,
+    "level": "Medium",
+    "query": "Apa itu fitur Display Preferences dan bagaimana cara menggunakannya untuk mengatur tampilan promosi?",
+    "ground_truth": "Display Preferences memungkinkan kustomisasi opsi tampilan promo pada halaman booking. Jika memilih 'room type', maka tampilan akan menyortir penawaran berdasarkan tipe kamar. Jika ingin disortir berdasarkan promo, maka dapat memilih by 'promotions'. Fitur ini dapat diakses melalui Setup > Display Preference.",
+    "topik": "Display Preferences"
+  },
+  {
+    "id": 14,
+    "level": "Medium",
+    "query": "Bagaimana cara mengaktifkan dan mengatur payment Bank Transfer beserta QRIS di Booking Engine?",
+    "ground_truth": "Untuk mengaktifkan payment Bank Transfer, akses Menu Setup > Payment Configuration, kemudian buat konfigurasi baru. Pada Type pilih Bank Transfer. Jika ingin memunculkan kode QRIS, menu QRIS bisa dicentang. Pada kolom QRIS masukkan foto Barcode QRIS Bank yang sudah dimiliki Hotel/Property. Pada kolom QRIS NMID masukkan Code ID QRIS Bank. Pada Payment Expiration isikan durasi/waktu dalam menit yang diberikan ke tamu untuk melakukan proses pembayaran, misalnya 180 menit atau 3 jam.",
+    "topik": "Payment Configuration"
+  },
+  {
+    "id": 15,
+    "level": "Complex",
+    "query": "Bagaimana cara membuat Promotion Package lengkap dengan rumus kalkulasi harga, pengaturan extra benefit, geo extra discount, sale date, dan stay date?",
+    "ground_truth": "Fitur promo Package memungkinkan membuat harga kombinasi dengan ekstra benefit. Rumus Package: (Harga dasar kamar dikurang discount ditambah total harga benefit dibagi minimum night stay). Untuk membuat package, akses Rate Master > Promotion. Field yang diisi meliputi: Promo Name, Promo Type (otomatis Packages), Room Type, Picture, Include Breakfast, Do not display with regular rates (untuk secret deals), Display Crossout Rate, This promotion is active, Exclusive to Mobile Device, Inclusion, Short Description, Standalone rate, Mobile Discount. Untuk extra benefit bisa menggunakan cara pertama (Amount Inclusion Per Date: harga benefit per hari) atau cara kedua (Add Extra Benefit: pilih optional extra). Cut of date untuk jarak antara reservasi hingga stay. Minimum Stay dan Maximum Stay untuk durasi menginap. Extra Adult/Child/Infant Charge untuk tambahan biaya. Geo Extra Discount untuk diskon tambahan berdasarkan negara asal tamu. Stay Date untuk masa berlaku tinggal dan Sale Date untuk masa berlaku pemesanan (booking window).",
+    "topik": "Promotion Package"
+  },
+  {
+    "id": 16,
+    "level": "Complex",
+    "query": "Bagaimana mekanisme default cancellation policy bekerja ketika tamu melakukan reservasi lebih dari satu kamar dengan ketentuan policy yang berbeda?",
+    "ground_truth": "Pada OmniH Booking Engine, anda dapat membuat lebih dari 1 cancellation policy. Booking engine memungkinkan tamu untuk melakukan reservasi lebih dari 1 kamar yang berbeda, promo berbeda dan periode stay berbeda. Default policy akan digunakan bila ada tamu melakukan reservasi lebih dari 1 kamar dengan ketentuan policy yang berbeda. Oleh karena itu penting untuk menetapkan satu cancellation policy sebagai default policy agar sistem dapat menentukan policy mana yang berlaku ketika terjadi konflik antara policy dari kamar-kamar yang dipesan.",
+    "topik": "Cancellation Policy"
+  },
+  {
+    "id": 17,
+    "level": "Complex",
+    "query": "Jelaskan perbedaan antara fitur Visit Overtime, Visit in Realtime, Channel Type, dan Conversion Overview pada dashboard, serta bagaimana cara memanfaatkannya untuk analisis performa booking?",
+    "ground_truth": "Visit Overtime adalah fitur untuk melihat report jumlah kunjungan/visitor pada halaman reservasi Booking Engine secara historis. Visit in Realtime adalah fitur untuk melihat report jumlah kunjungan/visitor secara realtime pada halaman reservasi Booking Engine, dan juga menunjukan report device atau Browser yang digunakan oleh user untuk mengakses halaman website Hotel. Channel Type adalah fitur untuk melihat report jumlah kunjungan/visitor pada halaman reservasi Booking Engine berdasarkan tipe Channel-nya baik itu melalui Website Link, Social networks seperti Facebook, atau melalui Link Google FBL. Conversion Overview adalah fitur untuk melihat report jumlah kunjungan/visitor secara realtime pada halaman reservasi Booking Engine yang berhasil diconvert menjadi sebuah bookingan, atau dengan kata lain tamu mengunjungi halaman reservasi dan booking sebuah promo atau package sehingga menjadi bookingan yang confirm. End Date Period digunakan untuk mengatur tampilan Periode sebagai parameter untuk memunculkan data Conversion di bawahnya.",
+    "topik": "Dashboard"
+  },
+  {
+    "id": 18,
+    "level": "Complex",
+    "query": "Bagaimana cara mengatur redirect after booking untuk ketiga kondisi pembayaran sekaligus dan apa yang terjadi jika kolom Time Out tidak diisi?",
+    "ground_truth": "Untuk mengatur Redirect After Booking, akses Setup > Display Preference. Terdapat 3 kondisi yang perlu diatur: (1) Complete Payment: input Link Redirect dan kolom Time Out pada bagian Complete Payment, link yang diinputkan akan dimuat setelah berhasil melakukan pembayaran, klik Save Setup; (2) Unpaid Payment: Input Link Redirect dan Time Out pada bagian Unpaid Payment dan klik Save Setup, redirect URL ditampilkan ketika pembayaran sudah dilakukan namun belum dikonfirmasi property; (3) Unfinished Payment: Isi Link Redirect dan Time Out, lalu Save Setup, redirect URL terjadi jika gagal dalam proses pembayaran karena waktu habis. Jika kolom Time Out tidak diinputkan maka akan tersetting default 5 detik untuk semua kondisi.",
+    "topik": "Redirect After Booking"
+  },
+  {
+    "id": 19,
+    "level": "Complex",
+    "query": "Bagaimana cara membuat promo Special Offers dan apa perbedaan mendasar antara Special Offers dengan Promotion Package dalam hal kalkulasi diskon dan kondisi yang diterapkan?",
+    "ground_truth": "Fitur promo Special Offers adalah fitur dimana anda dapat membuat diskon spesial yang sifatnya tidak ada kondisi-kondisi tertentu. Berbeda dengan Promotion Package yang menggunakan rumus: (Harga dasar kamar dikurang discount ditambah total harga benefit dibagi minimum night stay) dan memiliki banyak kondisi seperti minimum stay, maximum stay, cut of date, extra benefit, dan geo extra discount. Special Offers bersifat lebih sederhana tanpa kondisi-kondisi khusus tersebut. Kalkulasi diskon pada Special Offers berbeda dengan Package yang membaca harga per malam bukan harga bundle. Untuk mengakses Promotion: Masuk ke menu Rate Master > Promotion.",
+    "topik": "Promotion"
+  },
+  {
+    "id": 20,
+    "level": "Complex",
+    "query": "Bagaimana cara mengkonfigurasi setup property secara lengkap mulai dari pengaturan informasi dasar, mailing, social link, booking script, theme setup, hingga tracking code, dan apa saja informasi yang wajib diisi?",
+    "ground_truth": "Untuk masuk ke property setup: Masuk ke menu Setup > Property Setting > Pilih nama property Anda. Tab yang tersedia meliputi Setup Property, Mailing, Social Link, Tracking Code, Media, Booking Script, dan Theme Setup. Pada property setup, informasi yang dapat diubah meliputi: Property Name (nama property), Address (alamat), Country (negara), Province (provinsi), City (kota), Area (daerah), Website URL, Timezone, Language, No of Rooms/Villas, Property Classification, Star Classification, Property Description, Property Terms and Conditions, Phone, Fax, Email, Latitude Coordinate, Longitude Coordinate, Embedded Map Unit, Account Status, Check-in Time, Check-out Time, Currency, Number of Decimal, Tax (%), Service (%), dan Price Type. Field yang wajib diisi ditandai dengan tanda bintang (*). Setelah mengisi semua data yang diperlukan, klik tombol SAVE PROPERTY untuk menyimpan.",
+    "topik": "Setup Property"
+  }
+]
