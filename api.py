@@ -1904,7 +1904,7 @@ async def train_baseline_model(
             chunk_size=800,  # Ukuran chunk standar untuk baseline
             chunk_overlap=150,  # Minimal overlap untuk baseline
             separators=["\n\n", "\n", ". ", "! ", "? ", " "],
-            keep_separator=False  # Baseline tidak perlu separator
+            keep_separator=True  
         )
         
         split_docs = text_splitter.split_documents(raw_docs)
@@ -1941,7 +1941,7 @@ async def train_baseline_model(
 
         # Hyperparameter tuning untuk baseline model (sesuai diagram)
         baseline_params = {
-            "vector_size": vectorSize,  # Dimensi 300 sesuai diagram
+            "vector_size": 100,  # Dimensi 300 sesuai diagram
             "window": windowSize,
             "min_count": minCount,
             "workers": min(4, os.cpu_count() or 1),
