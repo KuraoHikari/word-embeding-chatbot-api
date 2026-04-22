@@ -354,63 +354,68 @@ def mmr_reranking(
     lambda_param: float = 0.7, 
     top_k: int = 5
 ) -> List[MMRResult]:
-    """Maximal Marginal Relevance reranking untuk diversity"""
     if not results:
         return []
     
-    # Sort berdasarkan weighted score
     sorted_results = sorted(results, key=lambda x: x.weighted_score, reverse=True)
     
+    # Pre-compute token sets untuk semua kandidat (optimisasi)
+    candidate_tokens_cache = [set(preprocess_text(r.text)) for r in sorted_results]
+    
     selected = []
-    remaining = sorted_results.copy()
+    selected_tokens_list = []
+    remaining_indices = list(range(len(sorted_results)))
     
-    # Pilih yang pertama (relevance tertinggi)
-    if remaining:
-        first = remaining.pop(0)
-        selected.append(MMRResult(
-            text=first.text,
-            final_score=first.weighted_score,
-            diversity_penalty=0.0,
-            original_rank=0,
-            doc_index=first.doc_index
-        ))
+    # Pilih dokumen pertama (S = kosong, max similarity = 0)
+    first_idx = remaining_indices.pop(0)
+    first = sorted_results[first_idx]
+    selected.append(MMRResult(
+        text=first.text,
+        final_score=lambda_param * first.weighted_score,
+        diversity_penalty=0.0,
+        original_rank=0,
+        doc_index=first.doc_index
+    ))
+    selected_tokens_list.append(candidate_tokens_cache[first_idx])
     
-    # Iteratively select berdasarkan MMR score
-    while remaining and len(selected) < top_k:
+    # Iterasi greedy MMR
+    while remaining_indices and len(selected) < top_k:
         best_mmr_score = -float('inf')
-        best_idx = -1
+        best_pos = -1
+        best_max_sim = 0.0
         
-        for i, candidate in enumerate(remaining):
-            # Hitung similarity dengan yang sudah dipilih
+        for pos, idx in enumerate(remaining_indices):
+            candidate = sorted_results[idx]
+            candidate_tokens = candidate_tokens_cache[idx]
+            
             max_similarity = 0.0
-            candidate_tokens = set(preprocess_text(candidate.text))
-            
-            for selected_result in selected:
-                selected_tokens = set(preprocess_text(selected_result.text))
-                
+            for selected_tokens in selected_tokens_list:
                 if candidate_tokens and selected_tokens:
-                    intersection = len(candidate_tokens.intersection(selected_tokens))
-                    union = len(candidate_tokens.union(selected_tokens))
-                    jaccard_sim = intersection / union if union > 0 else 0
-                    max_similarity = max(max_similarity, jaccard_sim)
+                    inter = len(candidate_tokens & selected_tokens)
+                    union = len(candidate_tokens | selected_tokens)
+                    jaccard_sim = inter / union if union > 0 else 0.0
+                    if jaccard_sim > max_similarity:
+                        max_similarity = jaccard_sim
             
-            # MMR score = λ * relevance - (1-λ) * max_similarity
-            mmr_score = (lambda_param * candidate.weighted_score - 
-                        (1 - lambda_param) * max_similarity)
+            mmr_score = (lambda_param * candidate.weighted_score 
+                        - (1 - lambda_param) * max_similarity)
             
             if mmr_score > best_mmr_score:
                 best_mmr_score = mmr_score
-                best_idx = i
+                best_pos = pos
+                best_max_sim = max_similarity
         
-        if best_idx >= 0:
-            selected_candidate = remaining.pop(best_idx)
+        if best_pos >= 0:
+            chosen_idx = remaining_indices.pop(best_pos)
+            chosen = sorted_results[chosen_idx]
             selected.append(MMRResult(
-                text=selected_candidate.text,
+                text=chosen.text,
                 final_score=best_mmr_score,
-                diversity_penalty=(1 - lambda_param) * max_similarity,
+                diversity_penalty=(1 - lambda_param) * best_max_sim,
                 original_rank=len(selected),
-                doc_index=selected_candidate.doc_index
+                doc_index=chosen.doc_index
             ))
+            selected_tokens_list.append(candidate_tokens_cache[chosen_idx])
     
     return selected
 
@@ -1860,7 +1865,7 @@ async def train_baseline_model(
     chatbotId: str = Form(...),
     pdfTitle: str = Form(...),
     # Hyperparameter tuning parameters sesuai diagram
-    vectorSize: int = Form(default=300),  # Dimensi 300 sesuai diagram
+    vectorSize: int = Form(default=100),  
     learningRate: float = Form(default=0.05, ge=0.001, le=1.0),
     epochs: int = Form(default=20, ge=5, le=100),
     windowSize: int = Form(default=5, ge=1, le=10),
@@ -1919,7 +1924,7 @@ async def train_baseline_model(
                 # Normalize whitespace
                 text = re.sub(r'\s+', ' ', text)
                 
-                if len(text) >= 30:  # Minimum length untuk baseline
+                if len(text) >= 300:  # Minimum length untuk baseline
                     cleaned_docs.append(text)
             except Exception as e:
                 logger.warning(f"Error cleaning document: {str(e)}")
@@ -1941,7 +1946,7 @@ async def train_baseline_model(
 
         # Hyperparameter tuning untuk baseline model (sesuai diagram)
         baseline_params = {
-            "vector_size": 100,  # Dimensi 300 sesuai diagram
+            "vector_size": vectorSize,  # Dimensi 300 sesuai diagram
             "window": windowSize,
             "min_count": minCount,
             "workers": min(4, os.cpu_count() or 1),
@@ -2473,7 +2478,7 @@ async def compare_models(
             )
             results["baseline_model"] = {
                 "status": "success", 
-                "approach": "FastText (300D) + Cosine Similarity + Hyperparameter Tuning",
+                "approach": "FastText (100D) + Cosine Similarity + Hyperparameter Tuning",
                 "response_available": True
             }
         except Exception as e:
