@@ -57,6 +57,8 @@ export const create: AppRouteHandler<CreateRoute> = async (c) => {
    includeRAGAS: true,
    maxToken: chatbot.maxTokens || 500,
    temperature: chatbot.temperature ? chatbot.temperature / 100 : 0.3,
+   ground_truth: message.ground_truth,
+   debug: message.debug ?? false,
    isProposedModel: chatbot.isProposedModel || false,
   },
   env.API_PASSWORD,

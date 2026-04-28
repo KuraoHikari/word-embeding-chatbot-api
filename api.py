@@ -420,6 +420,101 @@ def mmr_reranking(
     return selected
 
 
+def mmr_reranking_debug(
+    results: List[SearchResult],
+    lambda_param: float = 0.7,
+    top_k: int = 5
+) -> Tuple[List[MMRResult], List[Dict[str, Any]]]:
+    """MMR dengan debug info"""
+    if not results:
+        return [], []
+
+    sorted_results = sorted(results, key=lambda x: x.weighted_score, reverse=True)
+    candidate_tokens_cache = [set(preprocess_text(r.text)) for r in sorted_results]
+
+    selected = []
+    selected_tokens_list = []
+    remaining_indices = list(range(len(sorted_results)))
+    iteration_log = []
+
+    # Iterasi 1: pilih terbaik
+    first_idx = remaining_indices.pop(0)
+    first = sorted_results[first_idx]
+    selected.append(MMRResult(
+        text=first.text,
+        final_score=lambda_param * first.weighted_score,
+        diversity_penalty=0.0,
+        original_rank=0,
+        doc_index=first.doc_index
+    ))
+    selected_tokens_list.append(candidate_tokens_cache[first_idx])
+    iteration_log.append({
+        "iteration": 1,
+        "selected_doc_index": first.doc_index,
+        "selected_text_preview": first.text[:100],
+        "mmr_score": lambda_param * first.weighted_score,
+        "max_jaccard_with_selected": 0.0,
+        "candidates_considered": len(remaining_indices) + 1
+    })
+
+    while remaining_indices and len(selected) < top_k:
+        best_mmr_score = -float('inf')
+        best_pos = -1
+        best_max_sim = 0.0
+        scores_detail = []
+
+        for pos, idx in enumerate(remaining_indices):
+            candidate = sorted_results[idx]
+            candidate_tokens = candidate_tokens_cache[idx]
+
+            max_similarity = 0.0
+            for selected_tokens in selected_tokens_list:
+                if candidate_tokens and selected_tokens:
+                    inter = len(candidate_tokens & selected_tokens)
+                    union = len(candidate_tokens | selected_tokens)
+                    jaccard = inter / union if union > 0 else 0.0
+                    if jaccard > max_similarity:
+                        max_similarity = jaccard
+
+            mmr_score = (
+                lambda_param * candidate.weighted_score
+                - (1 - lambda_param) * max_similarity
+            )
+            scores_detail.append({
+                "doc_index": candidate.doc_index,
+                "weighted_score": candidate.weighted_score,
+                "max_jaccard": max_similarity,
+                "mmr": mmr_score
+            })
+
+            if mmr_score > best_mmr_score:
+                best_mmr_score = mmr_score
+                best_pos = pos
+                best_max_sim = max_similarity
+
+        if best_pos >= 0:
+            chosen_idx = remaining_indices.pop(best_pos)
+            chosen = sorted_results[chosen_idx]
+            selected.append(MMRResult(
+                text=chosen.text,
+                final_score=best_mmr_score,
+                diversity_penalty=(1 - lambda_param) * best_max_sim,
+                original_rank=len(selected),
+                doc_index=chosen.doc_index
+            ))
+            selected_tokens_list.append(candidate_tokens_cache[chosen_idx])
+            iteration_log.append({
+                "iteration": len(selected),
+                "selected_doc_index": chosen.doc_index,
+                "selected_text_preview": chosen.text[:100],
+                "mmr_score": best_mmr_score,
+                "max_jaccard_with_selected": best_max_sim,
+                "candidates_scores": scores_detail
+            })
+
+    return selected, iteration_log
+
+
 def cross_encoder_reranking(
     query: str,
     mmr_results: List[MMRResult],
@@ -1476,7 +1571,8 @@ async def query_proposed_model(
     groundTruth: Optional[str] = Form(default=None),
     promptTemplate: Optional[str] = Form(default=None),
     maxToken: Optional[int] = Form(default=500, ge=100, le=2000),
-    temperature: Optional[float] = Form(default=0.7, ge=0.0, le=1.0)
+    temperature: Optional[float] = Form(default=0.7, ge=0.0, le=1.0),
+    debug: bool = Form(default=False)
 ):
     """Query menggunakan proposed hybrid model dengan semua fitur advanced"""
     
@@ -1484,6 +1580,7 @@ async def query_proposed_model(
         raise HTTPException(400, "Query tidak boleh kosong")
     
     start_time = time.time()
+    debug_info: Optional[Dict[str, Any]] = None
     
     try:
         # Konstruksi path
@@ -1505,6 +1602,22 @@ async def query_proposed_model(
         logger.info(f"Analyzing query complexity: '{query[:50]}...'")
         complexity = analyze_query_complexity(query)
         weights = get_weight_strategy(complexity)
+
+        if debug:
+            debug_info = {
+                "complexity_analysis": {
+                    "type": complexity.query_type,
+                    "score": complexity.complexity_score,
+                    "word_count": complexity.word_count,
+                    "unique_words": complexity.unique_words,
+                    "question_words": complexity.question_words
+                },
+                "weights": weights,
+                "hybrid_search_details": [],
+                "mmr_iterations": [],
+                "cross_encoder_scores": [],
+                "ragas_breakdown": None
+            }
         
         # 2. Load semantic model
         semantic_model_file = base_path / f"{modelType}_proposed.model"
@@ -1556,8 +1669,19 @@ async def query_proposed_model(
             top_k=min(topK * 2, 20)  # Ambil lebih banyak untuk MMR
         )
 
+        if debug and debug_info is not None:
+            for sr in search_results[:10]:
+                debug_info["hybrid_search_details"].append({
+                    "doc_index": sr.doc_index,
+                    "text_preview": sr.text[:100],
+                    "fasttext": sr.fasttext_similarity,
+                    "bm25": sr.bm25_score,
+                    "context": sr.context_score,
+                    "weighted": sr.weighted_score
+                })
+
         if not search_results:
-            return JSONResponse({
+            empty_response = {
                 "status": "success",
                 "query": query,
                 "complexity_analysis": {
@@ -1567,15 +1691,27 @@ async def query_proposed_model(
                 },
                 "results": [],
                 "message": "Tidak ditemukan dokumen yang relevan"
-            })
+            }
+            if debug and debug_info is not None:
+                empty_response["debug_info"] = debug_info
+            return JSONResponse(empty_response)
 
         # 6. MMR Reranking
         logger.info(f"Performing MMR reranking with lambda={mmrLambda}")
-        mmr_results = mmr_reranking(
-            results=search_results,
-            lambda_param=mmrLambda,
-            top_k=topK
-        )
+        if debug:
+            mmr_results, mmr_iterations = mmr_reranking_debug(
+                results=search_results,
+                lambda_param=mmrLambda,
+                top_k=topK
+            )
+            if debug_info is not None:
+                debug_info["mmr_iterations"] = mmr_iterations
+        else:
+            mmr_results = mmr_reranking(
+                results=search_results,
+                lambda_param=mmrLambda,
+                top_k=topK
+            )
 
         # 7. Cross-Encoder Re-ranking (optional, default aktif)
         cross_encoder_results = None
@@ -1604,6 +1740,18 @@ async def query_proposed_model(
                 logger.error(f"Cross-Encoder reranking failed: {str(e)}, falling back to MMR results")
                 cross_encoder_results = None
                 final_contexts = mmr_results
+
+        if debug and useCrossEncoder and cross_encoder_results and debug_info is not None:
+            debug_info["cross_encoder_scores"] = [
+                {
+                    "doc_index": ce.doc_index,
+                    "text_preview": ce.text[:100],
+                    "cross_encoder_score": ce.cross_encoder_score,
+                    "mmr_score": ce.mmr_score,
+                    "final_score": ce.final_score
+                }
+                for ce in cross_encoder_results
+            ]
 
         # 8. GPT Generation (optional)
         gpt_response = None
@@ -1638,6 +1786,15 @@ async def query_proposed_model(
                     answer=gpt_response["answer"],
                     ground_truth=groundTruth
                 )
+                if debug and debug_info is not None and isinstance(ragas_metrics, RAGASMetrics):
+                    debug_info["ragas_breakdown"] = {
+                        "context_relevance": ragas_metrics.context_relevance,
+                        "context_precision": ragas_metrics.context_precision,
+                        "context_recall": ragas_metrics.context_recall,
+                        "faithfulness": ragas_metrics.faithfulness,
+                        "answer_relevance": ragas_metrics.answer_relevance,
+                        "overall": ragas_metrics.overall_score
+                    }
             except Exception as e:
                 logger.error(f"RAGAS calculation failed: {str(e)}")
                 ragas_metrics = {"error": str(e)}
@@ -1749,6 +1906,9 @@ async def query_proposed_model(
                 response_data["ragas_evaluation"] = ragas_metrics
             else:
                 logger.warning(f"Unexpected type for ragas_metrics: {type(ragas_metrics)}")
+
+        if debug and debug_info is not None:
+            response_data["debug_info"] = debug_info
 
         return JSONResponse(response_data)
 
@@ -2125,7 +2285,8 @@ async def query_baseline_model(
     groundTruth: Optional[str] = Form(default=None),
     promptTemplate: Optional[str] = Form(default=None),
     maxToken: Optional[int] = Form(default=500, ge=100, le=2000),
-    temperature: Optional[float] = Form(default=0.7, ge=0.0, le=1.0)
+    temperature: Optional[float] = Form(default=0.7, ge=0.0, le=1.0),
+    debug: bool = Form(default=False)
 ):
     """Query baseline model sesuai diagram - Simple FastText + Cosine Similarity + Top-k"""
     
@@ -2207,6 +2368,24 @@ async def query_baseline_model(
         # 4. Top-k Retrieval berdasarkan skor similaritas (sesuai diagram)
         logger.info(f"Performing top-{topK} retrieval")
         top_indices = np.argsort(similarities)[::-1][:topK]
+
+        debug_info = None
+        if debug:
+            debug_info = {
+                "query_tokens": processed_query,
+                "query_embedding_sample": query_embedding.tolist()[:10] if query_embedding is not None else None,
+                "document_embeddings_shape": doc_embeddings.shape,
+                "top5_similarities": [],
+                "top5_document_indices": [],
+                "top5_text_preview": []
+            }
+            # Ambil 5 teratas
+            for i in range(min(5, len(top_indices))):
+                idx = top_indices[i]
+                sim = float(similarities[idx])
+                debug_info["top5_similarities"].append(sim)
+                debug_info["top5_document_indices"].append(int(valid_doc_indices[idx]))
+                debug_info["top5_text_preview"].append(documents[valid_doc_indices[idx]][:200])
         
         baseline_results = []
         for i, idx in enumerate(top_indices):
@@ -2329,6 +2508,9 @@ async def query_baseline_model(
             }
         elif ragas_metrics:
             response_data["ragas_evaluation"] = ragas_metrics
+
+        if debug and debug_info is not None:
+            response_data["debug_info"] = debug_info
 
         return JSONResponse(response_data)
         

@@ -8,11 +8,13 @@ import * as routes from "./auth.routes";
 const router = createRouter();
 router.use(routes.login.path, authLimiter); // Apply auth middleware to all routes
 router.use(routes.getUser.path, authMiddleware);
+router.use(routes.getDetailDashboard.path, authMiddleware);
 router.use(routes.register.path, authLimiter);
 
 // Then register OpenAPI routes
 router.openapi(routes.login, handlers.login);
 router.openapi(routes.register, handlers.register);
 router.openapi(routes.getUser, handlers.getUser);
+router.openapi(routes.getDetailDashboard, handlers.getDetailDashboard);
 
 export default router;
