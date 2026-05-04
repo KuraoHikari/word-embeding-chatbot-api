@@ -1399,6 +1399,7 @@ async def train_proposed_model(
         for doc in split_docs:
             try:
                 text = doc.page_content.strip()
+                text = text.lower()
                 text = re.sub(r'\s+', ' ', text)
                 
                 if len(text) >= MIN_CHUNK_LENGTH:

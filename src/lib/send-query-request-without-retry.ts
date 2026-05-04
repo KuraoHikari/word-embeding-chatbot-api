@@ -19,6 +19,7 @@ interface QueryParams {
   maxToken?: number; // default: 500, min: 100, max: 2000
   temperature?: number; // default: 0.7, min: 0.0, max: 1.0
   ground_truth?: string; // optional ground truth answer for proposed model
+  debug?: boolean; // default: false
 }
 
 export async function sendQueryRequestWithoutRetry(
@@ -46,6 +47,7 @@ export async function sendQueryRequestWithoutRetry(
       { name: "temperature", value: params.temperature?.toString() || "0.3" },
       { name: "ground_truth", value: params.ground_truth || "" },
       { name: "useCrossEncoder", value: params.isProposedModel ? "true" : "false" },
+      { name: "debug", value: params.debug ? "true" : "false" },
     ];
 
     fields.forEach(field => nodeFormData.append(field.name, field.value));
