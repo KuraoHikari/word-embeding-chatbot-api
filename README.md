@@ -60,11 +60,11 @@ flowchart LR
     Client[Client / Frontend] --> NodeAPI[Node.js API - Hono - port 9999]
     NodeAPI --> SQLite[(SQLite / Turso)]
     NodeAPI --> Redis[(Upstash Redis - rate limit)]
-    NodeAPI -->|train / query> PyAPI[Python ML Server - FastAPI - port 8888]
+    NodeAPI -->|train / query| PyAPI[Python ML Server - FastAPI - port 8888]
     PyAPI --> Gensim[Word2Vec / FastText models]
     PyAPI --> BM25[BM25 Okapi]
-    PyAPI -->|optional> OpenAI[OpenAI GPT]
-    NodeAPI -->|optional embedding> Pinecone[(Pinecone Vector DB)]
+    PyAPI -->|optional| OpenAI[OpenAI GPT]
+    NodeAPI -->|optional embedding| Pinecone[(Pinecone Vector DB)]
     NodeAPI -->|PDF storage| Cloudinary[(Cloudinary)]
 ```
 
